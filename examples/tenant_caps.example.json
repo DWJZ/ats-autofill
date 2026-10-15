@@ -1,0 +1,37 @@
+{
+  "_readme": "EXAMPLE FILE. Machine-readable tenant application caps - the maximum number of applications a board takes inside a window. This file is read before a form is opened, so a capped board is refused BEFORE an application is prepared: a cap discovered at Submit costs a complete fill and sometimes the application itself. Fields: slug (THE ATS BOARD SLUG as the posting url carries it, not the company name), cap (max submissions in the window), window_days (0 = no window, count them all), kind ('count' | 'active' | 'one_at_a_time' | 'same_role_cooldown'), note, source, and optional also_stated - a LIST of further limits the same tenant states elsewhere ({cap, window_days, kind, source}). Every stated limit is enforced, and the board is refused when ANY of them is reached: one employer can publish one number and enforce another.",
+  "caps": [
+    {
+      "slug": "acme",
+      "cap": 2,
+      "window_days": 180,
+      "kind": "count",
+      "note": "Example entry: two applications per 180 days, stated on the board itself. Replace the numbers with the ones the board actually states, and quote the sentence in `source` so the next reader can check it.",
+      "source": "example - board FAQ"
+    },
+    {
+      "slug": "northwind",
+      "cap": 1,
+      "window_days": 0,
+      "kind": "one_at_a_time",
+      "note": "Example entry: `one_at_a_time` is a STATE, not a count over time - window_days is 0 because an application from two years ago still occupies the slot. Counting kinds with window_days 0 behave the same way.",
+      "source": "example - observed refusal at Submit"
+    },
+    {
+      "slug": "contoso",
+      "cap": 3,
+      "window_days": 180,
+      "kind": "count",
+      "note": "Example entry: the posting states one limit and the tenant's own mail states a different one. Both are recorded and both are enforced, because keeping only the posted figure makes a board look open while the tenant is refusing it.",
+      "source": "example - posting tail",
+      "also_stated": [
+        {
+          "cap": 4,
+          "window_days": 30,
+          "kind": "count",
+          "source": "example - the tenant's own 'limit reached' e-mail"
+        }
+      ]
+    }
+  ]
+}

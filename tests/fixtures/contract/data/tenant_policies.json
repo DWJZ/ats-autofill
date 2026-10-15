@@ -1,0 +1,77 @@
+{
+  "_note": [
+    "FIXTURE FILE. Per-tenant application policies, kept as data rather than prose, installed at",
+    "data/tenant_policies.json by scripts/run-contract-tests.sh for one test run. Read it before tailoring",
+    "anything at one of these tenants: a policy says what one employer does, which is why it cannot become a",
+    "test and belongs here.",
+    "A CAP IS NOT A POLICY AND IS NOT RECORDED HERE. Caps live in data/form_specs/tenant_caps.json, which the",
+    "preflight reads BEFORE a form is opened; two sources for one number is how the number drifts. Where a",
+    "tenant is both capped and skipped, the policy entry says the decision and `_see_also` points at the cap."
+  ],
+  "_fields": {
+    "tenant": "the employer as the tracker spells it",
+    "policy": "skip | no_sponsorship | form_only_bar",
+    "evidence": "posting | form | board_wide | rejection_mail | confirmation_page - WHERE the policy was discovered, which is often the point, because a bar that only appears on the form cannot be found by reading the posting",
+    "learned": "the date the policy was established",
+    "detail": "the sentence or observation it rests on, quoted rather than summarised"
+  },
+  "tenants": [
+    {
+      "tenant": "Tailscale",
+      "policy": "no_sponsorship",
+      "evidence": "rejection_mail",
+      "learned": "2026-09-24",
+      "detail": "FIXTURE ENTRY, and the case where only the rejection reveals the bar: the posting was silent and said nothing a hard-bar screen could match, so the bar was learned from the answer to the application itself. A rejection is evidence about the TENANT, not only about the application it answered, so it changes what every future round does here."
+    },
+    {
+      "tenant": "Babel Street",
+      "policy": "skip",
+      "evidence": "form",
+      "learned": "2026-10-01",
+      "detail": "FIXTURE ENTRY. The bar was in the APPLICATION FORM while the posting read clean, and its sibling requisitions share the same federal-contract business, so the tenant is a skip rather than a per-requisition one. This is the expensive kind: it is only discovered after a resume has been tailored and a form opened."
+    },
+    {
+      "tenant": "CrowdStrike",
+      "policy": "skip",
+      "evidence": "board_wide",
+      "learned": "2026-10-01",
+      "detail": "FIXTURE ENTRY. A company-wide bar stated in a form of words containing neither 'sponsor' nor 'clearance', which is why a screen tuned to those two words passed it. Board-wide evidence means no requisition on this board is worth a tailoring cycle."
+    },
+    {
+      "tenant": "Teamworks",
+      "policy": "no_sponsorship",
+      "evidence": "posting",
+      "learned": "2026-10-01",
+      "detail": "FIXTURE ENTRY. The no-sponsorship family in its own wording, in the description text rather than in a requirements heading. Recorded per tenant because every requisition on the board carries it."
+    },
+    {
+      "tenant": "Garner Health",
+      "policy": "no_sponsorship",
+      "evidence": "posting",
+      "learned": "2026-10-01",
+      "detail": "FIXTURE ENTRY. An italicised note inside the description, below the responsibilities - the reading is the SENTENCE, not the keyword, so the note is quoted in full here rather than reduced to 'no sponsorship'."
+    },
+    {
+      "tenant": "Render",
+      "policy": "no_sponsorship",
+      "evidence": "posting",
+      "learned": "2026-10-03",
+      "detail": "FIXTURE ENTRY. The bar is phrased as the affirmative-negative: not eligible for new sponsorship, while existing transfers may be sponsored. The narrower claim is the one that matters, so the entry records the wording rather than the outcome."
+    },
+    {
+      "tenant": "Retell AI",
+      "policy": "no_sponsorship",
+      "evidence": "posting",
+      "learned": "2026-10-04",
+      "detail": "FIXTURE ENTRY. Stated in the requirements list, in a sentence that also describes the role's on-site expectations - recorded as a policy because it decides whether the board is worth tailoring for, not only whether one posting is."
+    },
+    {
+      "tenant": "Skydio",
+      "policy": "skip",
+      "evidence": "posting",
+      "learned": "2026-10-06",
+      "detail": "FIXTURE ENTRY. A defence-adjacent employer whose requirements state a status the candidate does not hold. Skipped at screening rather than argued with at Submit: the requirement is the employer's to set and the answer is a fact about the candidate."
+    }
+  ],
+  "_see_also": "data/form_specs/tenant_caps.json holds the application caps, and is the file the preflight actually reads. Caps live there and nowhere else: two sources for one number is how the number drifts. This file holds the policies that are decisions - skip, no_sponsorship, form_only_bar."
+}

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ATS widget fixtures (BLANK)</title>
+<style>
+  body { font: 14px/1.5 -apple-system, sans-serif; margin: 24px; }
+  fieldset { margin: 0 0 18px; padding: 12px 14px; border: 1px solid #ccc; }
+  legend { font-weight: 600; }
+  .pair { display: inline-flex; gap: 6px; }
+  .pair button { padding: 4px 12px; }
+  .hidden-box { width: 0; height: 0; opacity: 0; position: absolute; }
+  .select__control { border: 1px solid #999; padding: 6px 8px; width: 260px; cursor: pointer; }
+  .select__single-value { color: #111; }
+  .select__menu { border: 1px solid #999; margin-top: 2px; width: 260px; }
+  .select__option { padding: 4px 8px; cursor: pointer; }
+  .trigger { border: 1px dashed #999; padding: 6px 8px; width: 200px; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>ATS widget fixtures (BLANK)</h1>
+<p>Each fieldset reproduces one widget shape the project has had to drive. It exists so the fillers can be
+verified without touching a live application. <code>nameOnlyPair</code> is the shape that broke
+<code>answer_by_checkbox.mjs</code> (Sprinter Health, 2026-10-03).</p>
+
+<!-- FIXTURE ARTEFACT, and it costs a round if you do not know about it. Every <legend> below QUOTES its fieldset's
+     question verbatim, so a question-matching regex finds the question in the page-level container as well as in
+     the fieldset. A tool that reports "N matches" therefore over-counts by one per question asked, and the extra
+     match is the whole page. It is an artefact of writing the questions into the legends, not a real page shape:
+     a live form does not repeat every question in its own header. Confirmed 2026-10-07 - the over-count is
+     identical before and after click_group_option.mjs learned to read label-less options, so it is not caused by
+     that change. Do not "fix" the tool for it. Ask a question whose text appears ONLY inside its fieldset, or read
+     the tab=0 line rather than the count, when you need a clean signal. -->
+
+<!-- A TALL SPACER, deliberately: every control below it sits off-screen on load, so `scrollIntoView` inside a
+     press actually has to scroll. That is the condition under which measuring coordinates in the SAME evaluate
+     as the scroll returns a stale rect - the Discord bug (`top = -673`) recorded in pick_select_option.mjs.
+     Scoring the fixture on a short page hides that class of failure. -->
+<div id="spacer" style="height:1400px; background:repeating-linear-gradient(#eee 0 40px,#fff 40px 80px)">
+  <p style="padding:8px">spacer — the fields below start below the fold</p>
+</div>
+
+<!-- 0. THE SYSTEM FIELDS. `cdp_tabs.mjs dedupe-tabs` (which absorbed dedupe_tabs.mjs) decides which of several tabs
+     pointing at the same posting is the filled one by reading `#_systemfield_name`, and treats a tab without it as
+     NEITHER filled nor blank - so on a fixture missing these two ids every tab falls through to "single meaningful
+     tab" and the logic under test never runs. They are here so that path is testable. The companion page
+     ats_widgets_blank.html has the same markup with these left empty, so a two-tab test has one of each. -->
+<fieldset id="systemFields">
+  <legend>systemFields — _systemfield_name / _systemfield_email</legend>
+  <div>
+    <label for="_systemfield_name">Name</label>
+    <input type="text" id="_systemfield_name" name="_systemfield_name" value="">
+  </div>
+  <div>
+    <label for="_systemfield_email">Email</label>
+    <input type="text" id="_systemfield_email" name="_systemfield_email" value="">
+  </div>
+</fieldset>
+
+<!-- 1. NAME-ONLY PAIR: two checkboxes whose NAME attributes are literally "Yes" and "No" - there is no field
+     uuid to anchor on, which is the shape that broke answer_by_checkbox.mjs (Sprinter Health, 2026-10-03).
+     The labels are siblings bound by `for`, which is how a real form writes them and what a press must target:
+     an unbound label cannot toggle its input, so a fixture with one would test nothing. -->
+<fieldset id="nameOnlyPair">
+  <legend>nameOnlyPair — checkboxes named "Yes"/"No", sibling labels bound by for</legend>
+  <div>
+    Are you currently located in the Greater Seattle area?
+    <div class="pair">
+      <input type="checkbox" id="sprinter_yes" name="Yes"> <label for="sprinter_yes">Yes</label>
+      <input type="checkbox" id="sprinter_no" name="No"> <label for="sprinter_no">No</label>
+    </div>
+  </div>
+</fieldset>
+
+<!-- 2. STANDARD HIDDEN PAIR: the Ashby shape. Two buttons over ONE hidden checkbox whose name is the field
+     uuid, and the question sits in the container. -->
+<fieldset id="hiddenPair">
+  <legend>hiddenPair — Ashby buttons over one hidden uuid checkbox</legend>
+  <div id="hp_container">
+    <div>Do you now or in the future require visa sponsorship to work in the United States?</div>
+    <input class="hidden-box" type="checkbox" id="hp_box" name="0f2a1c34-5b6d-4e7f-8a90-1b2c3d4e5f60">
+    <div class="pair">
+      <button type="button" data-option="yes">Yes</button>
+      <button type="button" data-option="no">No</button>
+    </div>
+  </div>
+</fieldset>
+
+<!-- 3. RADIO PAIR: the same question drawn as radios, which a checkbox-climbing scanner cannot see at all. -->
+<fieldset id="radioPair">
+  <legend>radioPair — drawn as radios, not checkboxes</legend>
+  <div>
+    Are you legally authorized to work in the United States?
+    <div>
+      <label><input type="radio" name="auth_choice" value="Yes"> Yes</label>
+      <label><input type="radio" name="auth_choice" value="No"> No</label>
+    </div>
+  </div>
+</fieldset>
+
+<!-- 4. REACT-SELECT SHAPE: control wrapper + singleValue node; the menu is rendered on demand. -->
+<fieldset id="reactSelect">
+  <legend>reactSelect — react-select style control, two options</legend>
+  <div>
+    <label id="lbl_school">School</label>
+    <div class="select__control" id="school_control" role="combobox" aria-controls="school_listbox">
+      <span class="select__single-value"></span>
+      <input id="school_input" role="combobox" aria-autocomplete="list" aria-controls="school_listbox">
+    </div>
+    <div id="school_listbox" class="select__menu" role="listbox" style="display:none">
+      <div class="select__option" role="option">Lakeside State University - Fairview</div>
+      <div class="select__option" role="option">Fairview College</div>
+    </div>
+  </div>
+</fieldset>
+
+<!-- 5. BARE "SELECT..." DIV: answered_div_dropdown.mjs's widget class — a div whose text is the placeholder. -->
+<fieldset id="divDropdown">
+  <legend>divDropdown — a bare div reading SELECT...</legend>
+  <div>
+    <div>Which state do you plan on working from?</div>
+    <div id="state_trigger" class="trigger" role="button">SELECT...</div>
+    <div id="state_menu" style="display:none">
+      <div class="select__option" role="option">California</div>
+      <div class="select__option" role="option">Washington</div>
+    </div>
+  </div>
+</fieldset>
+
+<!-- 6. RADIO GROUP, ASHBY-STYLE: four options whose visible text is deliberately NOT reachable by a generic
+     text selector, because each label is rendered by a nested element with no `for` and no wrapper — the shape
+     click_radio_plan.mjs exists for. Its option ids are stable here and its text is "out of reach", which is the
+     opposite claim to click_group_option.mjs's ("ids drift, the label is the handle"). Both tools are live-reachable
+     through verify_and_submit.mjs, so the merge has to satisfy both: press by label when it can be read, by id when
+     it cannot. This fieldset is what decides whether that is possible. -->
+<fieldset id="ashbyRadioGroup">
+  <legend>ashbyRadioGroup — 4 options, label text not reachable generically</legend>
+  <div id="rg_container">
+    <div class="rg-name">Which team would you join?</div>
+    <div class="rg-options">
+      <div class="rg-opt"><span class="rg-ico"></span>
+        <input type="radio" name="rg_team" id="rg_opt_a1b2c3" value="infra">
+        <div class="rg-text"><div><span>Infrastructure</span></div></div>
+      </div>
+      <div class="rg-opt"><span class="rg-ico"></span>
+        <input type="radio" name="rg_team" id="rg_opt_d4e5f6" value="product">
+        <div class="rg-text"><div><span>Product Engineering</span></div></div>
+      </div>
+      <div class="rg-opt"><span class="rg-ico"></span>
+        <input type="radio" name="rg_team" id="rg_opt_g7h8i9" value="ml">
+        <div class="rg-text"><div><span>Machine Learning</span></div></div>
+      </div>
+      <div class="rg-opt"><span class="rg-ico"></span>
+        <input type="radio" name="rg_team" id="rg_opt_j0k1l2" value="security">
+        <div class="rg-text"><div><span>Security</span></div></div>
+      </div>
+    </div>
+  </div>
+</fieldset>
+
+<script>
+  // Minimal behaviour so the shapes are real enough to drive: clicking a pair button flips the hidden
+  // checkbox the way Ashby's does, and the option lists open on demand rather than being present.
+  const box = document.getElementById('hp_box');
+  document.querySelectorAll('#hp_container button').forEach((b) => {
+    b.addEventListener('click', () => {
+      box.checked = b.dataset.option === 'yes';
+      b.setAttribute('aria-pressed', String(b.dataset.option === 'yes'));
+    });
+  });
+  document.querySelectorAll('input[name="Yes"],input[name="No"]').forEach((c) => {
+    c.addEventListener('change', () => {
+      const want = c.name;
+      document.querySelectorAll('input[name="Yes"],input[name="No"]').forEach((o) => { o.checked = o === c && o.checked; });
+      window.__nameOnlyAnswer = c.checked ? want : null;
+    });
+  });
+  const control = document.getElementById('school_control');
+  const menu = document.getElementById('school_listbox');
+  control.addEventListener('click', () => { menu.style.display = menu.style.display === 'none' ? 'block' : 'none'; });
+  menu.querySelectorAll('[role=option]').forEach((o) => {
+    o.addEventListener('click', () => {
+      document.querySelector('#school_control .select__single-value').textContent = o.textContent;
+      menu.style.display = 'none';
+    });
+  });
+  const trigger = document.getElementById('state_trigger');
+  const stateMenu = document.getElementById('state_menu');
+  trigger.addEventListener('click', () => {
+    stateMenu.style.display = stateMenu.style.display === 'none' ? 'block' : 'none';
+  });
+  stateMenu.querySelectorAll('[role=option]').forEach((o) => {
+    o.addEventListener('click', () => { trigger.textContent = o.textContent; stateMenu.style.display = 'none'; });
+  });
+</script>
+</body>
+</html>

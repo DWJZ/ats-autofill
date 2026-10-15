@@ -1,0 +1,35 @@
+{
+  "_readme": [
+    "AN INVENTED FORM, in the shape `node src/forms/inspect_ats_form.mjs --options` writes: the drafter's input.",
+    "It exists so the end-to-end test can drive `src/forms/draft_form_spec.py` with no browser, no network and",
+    "no flakiness, and it is deliberately a form only THIS configuration can answer: identity and contact from",
+    "the two profiles, one question answered by the `answer_rules.json` the bootstrap wrote, one question no",
+    "profile can answer (the College of Nurses registration NUMBER) that must therefore come back as a gap",
+    "rather than as a guess, and a LinkedIn field — which this person does not have, so the example person's",
+    "LinkedIn URL must not appear there or anywhere else in the drafted spec.",
+    "",
+    "The refs use the scanner's own conventions (`id:` / `name:` / `group:`), because the drafter falls back to",
+    "them when a label matches nothing: `id:city` and `id:postal_code` are what answer an ordinary text input",
+    "whose question is only a word. `react_select: true` is what the scanner reports for a control whose class",
+    "or role says select — the two structured questions here are that shape, so they are answered with the",
+    "form's own option text instead of a bare string."
+  ],
+  "url": "https://job-boards.greenhouse.io/torontogeneral/jobs/4471002001",
+  "fields": [
+    {"ref": "id:first_name", "label": "First Name", "type": "text", "value": "", "required": true},
+    {"ref": "id:last_name", "label": "Last Name", "type": "text", "value": "", "required": true},
+    {"ref": "name:email", "label": "Email", "type": "email", "value": "", "required": true},
+    {"ref": "id:phone", "label": "Phone", "type": "tel", "value": "", "required": true},
+    {"ref": "id:city", "label": "City of Residence", "type": "text", "value": "", "required": false},
+    {"ref": "id:state", "label": "State or Province", "type": "text", "value": "", "required": false},
+    {"ref": "id:country", "label": "Country", "type": "select", "react_select": true, "value": "",
+     "required": true, "options": ["Canada", "United States of America", "Other"]},
+    {"ref": "id:postal_code", "label": "Postal Code", "type": "text", "value": "", "required": false},
+    {"ref": "name:urls[LinkedIn]", "label": "LinkedIn Profile", "type": "text", "value": "", "required": false},
+    {"ref": "id:cno_registration", "label": "College of Nurses of Ontario registration number", "type": "text",
+     "value": "", "required": true},
+    {"ref": "id:prev_employed", "label": "Have you previously been employed by Toronto General Hospital?",
+     "type": "select", "react_select": true, "value": "", "required": true, "options": ["Yes", "No"]},
+    {"ref": "group:Resume/CV", "label": "Resume/CV", "type": "file", "value": ""}
+  ]
+}

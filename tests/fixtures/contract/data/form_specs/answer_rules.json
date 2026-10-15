@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "_why": [
+    "FIXTURE FILE. A contract test fixture, installed into data/form_specs/answer_rules.json by",
+    "scripts/run-contract-tests.sh for the duration of one test run and removed afterwards.",
+    "The three rules at the top are the invented ones from examples/answer_rules.example.json - they are",
+    "kept so this file is a strict superset of what a fresh checkout has, and so the skip guard in",
+    "src/forms/test_answer_rules.py (which compares the installed rules against the example by value)",
+    "does not fire. Everything after them answers a wording that this suite names in REAL_WORDINGS.",
+    "`questionRe` is a case-insensitive regular expression matched against the question as the form words",
+    "it; rules are tried BEFORE the built-in matcher table, in FILE ORDER, so the index of a rule is part",
+    "of the contract: src/forms/test_h1b_vs_sponsorship.py pins the H-1B-history rule at [5], and it must",
+    "not be widened, because the sponsorship question one line below it has the opposite honest answer.",
+    "EVERY RULE CARRIES A NOTE NAMING WHERE ITS ANSWER COMES FROM: a rule that cites nothing cannot be",
+    "told apart from a guess by the next reader, and because it matches, the question never reaches",
+    "needs_review again."
+  ],
+  "rules": [
+    {
+      "questionRe": "have you (previously |ever )?(been )?employed (by|at|with)|have you worked (for|at)",
+      "kind": "select",
+      "answer": "No",
+      "note": "EXAMPLE RULE - canonical: no employer in data/application_profile.json is this tenant. Before trusting it, check the tracker: 'have you applied to us before' is a different question with a different answer. Replace this rule's note with the source you actually relied on."
+    },
+    {
+      "questionRe": "country/region do you have citizenship|which country.*citizenship|citizenship.*country",
+      "kind": "select",
+      "answer": "Example Country",
+      "note": "EXAMPLE RULE - canonical: candidate.citizenship in data/candidate_profile.json. The value must be the form's OWN option text for that country, not a free-text spelling, because the filler selects an option by its text. Citizenship is not immigration status and neither is work authorisation; never answer one from the other."
+    },
+    {
+      "questionRe": "notice period|how much notice|when (can|could) you start",
+      "kind": "text",
+      "answer": "Example: four weeks from the date of an offer",
+      "note": "EXAMPLE RULE - user rule: the availability answer you decided on, recorded here with its date and your own words. A notice period is a statement about your current employer's contract, so it must never be guessed from a job description."
+    },
+    {
+      "questionRe": "have you (previously )?(been employed by|applied (to|for)) (amazon|twitch)|current employee with (amazon|twitch)",
+      "kind": "select",
+      "answer": "No",
+      "note": "Canonical: the tracker holds no row at Amazon or Twitch and no employer in data/application_profile.json is either one. The three wordings this answers - previously employed, current employee outside Twitch, previously applied - are asked on ONE page a line apart, so each must fire on its own sentence rather than on a shared word like 'Amazon'. Check this against the tracker before reusing it: 'have you applied to us' with a recorded submission on file is not a No."
+    },
+    {
+      "questionRe": "non[- ]?competition|non[- ]?compete|agreement that would prevent|restrictive covenant",
+      "kind": "select",
+      "answer": "No",
+      "note": "Canonical: no agreement recorded in data/application_profile.json or data/candidate_profile.json restricts where the candidate may work. This is a statement about a legal position, so it is only reusable where the recorded facts really carry it - if an agreement is ever signed, this rule must be changed with the note, not quietly left answering No."
+    },
+    {
+      "questionRe": "h-1b status|h-1b petition|held h-1b",
+      "kind": "select",
+      "answer": "No",
+      "note": "H-1B HISTORY, NOT SPONSORSHIP, and the distinction is the whole reason this rule is pinned by index. It answers only 'have you HELD H-1B status' / 'had an H-1B petition approved'; it must never be widened to a bare 'h-1b visa', because the sponsorship question one line below it ('will you now or in the future require visa sponsorship ... (e.g., H-1B visa)') has the OPPOSITE honest answer and was answered No by exactly that widening. Canonical: no H-1B history is recorded in data/candidate_profile.json. The hyphen is LITERAL rather than written as `-?`: in a regular expression `-?` makes the HYPHEN optional, so a pattern spelled h-?1-?b matches h1b and h-1b but can never consume the five characters h ? 1 ? b - and the guard that recognises this rule reads the pattern text looking for a literal h-1b, which the optional spelling does not provide."
+    },
+    {
+      "questionRe": "since obtaining your (most recent|current) citizenship|become[a-z ]{0,12}permanent resident|after citizenship",
+      "kind": "select",
+      "answer": "No",
+      "note": "Canonical: data/candidate_profile.json records one citizenship and no change of immigration status after it. This is deliberately narrower than the citizenship rule above and carries its own 'since'/'after' wording, so that a plain 'in which country do you have citizenship' question is still answered from the profile by the citizenship rule rather than by this one."
+    },
+    {
+      "questionRe": "legally eligible to begin employment|eligible to begin employment|eligible to start employment",
+      "kind": "select",
+      "answer": "Yes",
+      "note": "Canonical: candidate.standard_answers.us_work_authorized is Yes in data/candidate_profile.json. The built-in work-authorisation matcher does not reach this wording - it reads 'eligible to work legally' and 'authoriz* to work' - and a rule of its own is needed because the answer is longer than the short-field guard allows in a company-named field, which is a refusal rather than an answer. Eligibility to begin employment is not sponsorship: the sponsorship question beside it is answered from the sponsor rules."
+    }
+  ]
+}

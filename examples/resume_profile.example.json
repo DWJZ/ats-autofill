@@ -1,0 +1,22 @@
+{
+  "_readme": "EXAMPLE FILE. A role profile describes ONE posting - and it is deliberately thin. Your history, skills and education live in application_profile.json; this file is not allowed to restate them, because a second copy of a fact is a copy that can drift, and `validate_profile` rejects a profile whose text claims anything on the candidate's `do_not_claim` list. Copy this file to `data/resume_profiles/<slug>.json`, fill in the four required fields, and run: application_pipeline.py prepare --profile data/resume_profiles/<slug>.json",
+  "_required": ["company", "role", "source", "summary"],
+  "_required_note": "`validate_profile` refuses to proceed without all four, and says which are missing. `source` is the posting URL - it is what the duplicate check keys on, so it must be the requisition URL and not the board's front page.",
+  "_optional": ["track", "header_title", "template_docx", "paragraph_replacements", "skills", "work_experience", "jd_text", "websites"],
+
+  "company": "Example Corp",
+  "role": "Backend Engineer",
+  "source": "https://job-boards.greenhouse.io/example/jobs/1234567",
+  "summary": "I am a software engineer who builds and operates backend services, and I am writing this paragraph so the example profile holds one that is the right length and written the way a real one would be. I have worked on APIs, on the data models underneath them, and on the interfaces built over the top, and I care most about what happens when a step fails: whether a retry repeats a side effect, whether a boundary was validated, and whether the next person can tell what the system actually did. Replace all of this with your own words. The pipeline reads it as the opening statement of your resume, and it refuses anything written in the third person, anything under 450 characters and anything over 800, because each of those is a way for a summary to end up saying something its author did not.",
+
+  "_optional_note": "Everything below is an override, and leaving it out is the normal case. `track` picks a resume track named in candidate_profile.json (`backend` / `fullstack` / `ai_application`) and is used for reporting, not layout. `header_title` is read ONLY when checking for banned claims - it does NOT appear in any document, so leave it out. A header printed by `job_app_assistant tailor` comes from `resume_tracks.<track>.default_header_title` in candidate_profile.json, or from the posting's own title. `template_docx` points this one application at a different master DOCX. `paragraph_replacements` swaps exact paragraphs in the master. `skills` and `work_experience` here are read ONLY when checking for banned claims - the resume's content comes from application_profile.json. `jd_text` is kept for the record. `websites` are extra links for this application.",
+
+  "track": "backend",
+  "header_title": "Software Engineer | Backend Platform",
+  "template_docx": "data/resume_templates/Example_Candidate_Backend_Resume.docx",
+  "paragraph_replacements": {},
+  "skills": {},
+  "work_experience": [],
+  "jd_text": "",
+  "websites": []
+}

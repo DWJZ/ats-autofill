@@ -1,0 +1,394 @@
+{
+  "_readme": [
+    "A bootstrap run of `src/tools/configure.py` — the answers for one person, in the shape that tool documents.",
+    "EVERY VALUE IS INVENTED FOR THE TEST. The person is the one this repository's other fixtures already use",
+    "when a differently-shaped applicant is needed (`src/pipeline/test_build_cover_letter.py`,",
+    "`src/forms/test_draft_form_spec.py`): a registered nurse in Toronto with a B.Sc.N. and a diploma and no",
+    "master's, and no LinkedIn — deliberately NOT the example's shape, because a bootstrap test that starts",
+    "from a US-resident master's holder with a LinkedIn profile proves nothing about the example's own values",
+    "being replaced. The e-mail is on `example.org`, which can never reach anyone.",
+    "",
+    "The keys are paths relative to the data directory; the values merge INTO the shipped example. Objects",
+    "merge key by key, lists and scalars replace, and `null` DELETES the key — which is how the example's",
+    "`legal_name_native`, `platform_experience` and `ead_expiry` are removed rather than answered with",
+    "something plausible. `src/tools/configure.py` refuses to write any file that is not still its example.",
+    "",
+    "WHY THE WORK-AUTHORISATION ANSWERS ARE WHAT THEY ARE: the drafter answers a generic 'are you authorised",
+    "to work' question from `standard_answers.us_work_authorized` and a citizenship question from",
+    "`candidate.citizenship`. This person is a US citizen by birth who lives in Canada as a permanent",
+    "resident, so `Yes` is the truthful answer on either reading, and `work_authorization: us_citizen` is what",
+    "the screening reads where the value decides which US work-authorisation requirements are a bar."
+  ],
+  "files": {
+    "candidate_profile.json": {
+      "candidate": {
+        "name": "Łukasz Żółkiewski",
+        "location": "Toronto, Ontario, Canada",
+        "email": "l.zolkiewski@example.org",
+        "linkedin": "",
+        "current_education": "B.Sc.N. in Nursing, Toronto Metropolitan University, Toronto, completed June 2014",
+        "previous_education": "Practical Nursing Diploma, George Brown College, Toronto, Jun 2010",
+        "work_authorization_note": "United States citizen by birth; lives in Toronto, Ontario, Canada as a Canadian permanent resident and holds a College of Nurses of Ontario RN registration. No sponsorship is required for any role in Canada. A requirement to be a U.S. citizen or U.S. person is satisfied, not a bar; what is true and has to be stated honestly is that he lives outside the United States and would relocate for an onsite US role.",
+        "citizenship": "United States of America",
+        "websites": [],
+        "standard_answers": {
+          "age_18_plus": "Yes",
+          "us_work_authorized": "Yes",
+          "sponsorship_required": "No",
+          "work_authorization": "us_citizen",
+          "privacy_notice_ack": "Yes",
+          "gender_identity": "Man",
+          "race_ethnicity": ["White"],
+          "disability": "No",
+          "veteran": "No",
+          "sexual_orientation": "Straight / Heterosexual",
+          "restrictive_agreement": "No",
+          "previously_worked_here": "No",
+          "referred_by_employee": "No"
+        },
+        "standing_answers": {
+          "office_commuting": "Yes",
+          "relocation": "Yes",
+          "required_consent_and_agreement": "Yes",
+          "preferred_location_order": [
+            "Toronto",
+            "Mississauga",
+            "Any other location in the Greater Toronto Area"
+          ],
+          "compensation_expectation": {
+            "rule": "When the posting publishes a salary range, answer with the TOP of that range. When it publishes none, answer with `standing_answers.compensation.fallback` and record which of the two a number was.",
+            "user_confirmed": "2026-10-14",
+            "example": null
+          },
+          "sponsorship_details_text": {
+            "rule": "Free-text answer for 'if you require sponsorship, please list the type'. This person requires none for any Canadian role, and that is the sentence to give.",
+            "value": "No sponsorship is required: a Canadian permanent resident, and a United States citizen by birth.",
+            "user_confirmed": "2026-10-14"
+          },
+          "favorite_github_project": null,
+          "compensation": {
+            "rule": "top_of_published_band",
+            "fallback": 95000,
+            "currency": "CAD",
+            "period": "year",
+            "user_rule_date": "2026-10-14",
+            "note": "The one home for this number. `rule` says the answer is the top of the band the posting publishes; `fallback` is what to answer when it publishes none, in the currency these postings are published in."
+          },
+          "preferred_locations": {
+            "order": [
+              "Toronto",
+              "Mississauga",
+              "Remote (Canada)"
+            ],
+            "user_rule_date": "2026-10-14",
+            "note": "A location control whose options are PLACES is answered with the highest-ranked place the field actually offers — the order is the preference, the field's list decides which of them is available."
+          }
+        }
+      },
+      "resume_tracks": {
+        "nursing": {
+          "label": "Registered Nurse",
+          "positioning": "Position as a registered nurse with acute-care and emergency experience: triage and prioritisation, IV therapy and high-alert medication checks, telemetry, interprofessional handoff, charge and preceptorship experience, and a clinical quality-improvement record.",
+          "default_header_title": "Registered Nurse | Emergency and Acute Care",
+          "template_docx": "data/resume_templates/Example_Candidate_Backend_Resume.docx",
+          "resume_files": [],
+          "keywords": [
+            "nurse",
+            "nursing",
+            "registered nurse",
+            "patient",
+            "clinical",
+            "emergency",
+            "triage",
+            "acute care",
+            "medication"
+          ]
+        }
+      },
+      "confirmed_skills": [
+        "Patient assessment and triage",
+        "Medication administration and IV therapy",
+        "ACLS and BCLS certification",
+        "Telemetry and 12-lead interpretation",
+        "Electronic health records (Epic, Cerner)",
+        "Interprofessional handoff (SBAR)",
+        "Charge nurse and preceptorship",
+        "Wound care and infection prevention"
+      ],
+      "do_not_claim": [
+        "software engineer",
+        "unit manager",
+        "Nurse Practitioner",
+        "critical care certification",
+        "Master's degree",
+        "security clearance",
+        "permanent resident of the United States"
+      ],
+      "safe_metrics": [
+        "9 years of acute care nursing experience",
+        "1,200+ patients assessed across a 34-bed unit",
+        "6 new graduate nurses precepted",
+        "3 unit quality-improvement projects led"
+      ],
+      "standard_answers": {
+        "heard_of_company": "Yes. Answer Yes to any 'have you heard of this company before' question; it asks whether the posting was read, and it was.",
+        "education_years": "B.Sc.N. Toronto Metropolitan University 09/2010-06/2014; Practical Nursing Diploma, George Brown College, Toronto 09/2008-06/2010.",
+        "outside_employment_or_consulting": "No - for any question about outside employment, consulting, advisory commitments or board seats.",
+        "llm_experience_years": "None - no professional experience with large language models or AI tooling; answer the honest 'none' option rather than a number.",
+        "airline_loyalty_experience": "Consumer user only - no professional airline or loyalty-programme experience.",
+        "ai_assisted_dev_tools_level": "None.",
+        "social_bio_line": "Registered Nurse, Toronto. Acute care, telemetry and clinical education.",
+        "wondered_question": "What I am curious about is why the same handoff fails on a different unit: the checklist is identical and the culture around it is not, and I want to work somewhere that studies that on purpose.",
+        "proficiency_rating": "For a clinical skill, choose the option that matches years of practice rather than the top option; for anything outside nursing, choose 'None' or 'Beginner'.",
+        "supervisory_references": "Previous supervisors can be provided on request; references are not listed on the resume.",
+        "location_scope_widened": "Toronto and Mississauga, Ontario, and remote roles based in Canada. US roles are in scope only where the employer will hire someone who must relocate to them.",
+        "current_visa_status": "United States citizen by birth; no US visa or immigration status applies. Lives in Canada as a permanent resident and holds a College of Nurses of Ontario RN registration.",
+        "citizenship": "United States of America",
+        "ead_expiry": null
+      },
+      "do_not_claim_allowed_phrases": []
+    },
+    "application_profile.json": {
+      "candidate": {
+        "first_name": "Łukasz",
+        "last_name": "Żółkiewski",
+        "name": "Łukasz Żółkiewski",
+        "name_pronunciation": "WOO-kash zhoov-KYEV-skee",
+        "email": "l.zolkiewski@example.org",
+        "phone": {
+          "country": "Canada",
+          "country_code": "+1",
+          "number": "4165550182",
+          "formatted": "+1 416 555 0182",
+          "device_type": "Mobile"
+        },
+        "high_school": {
+          "name": "II Liceum Ogólnokształcące im. Adama Mickiewicza, Warsaw",
+          "graduation_year": "2008"
+        },
+        "address": {
+          "country": "Canada",
+          "address_line_1": "1123 Dundas Street West",
+          "address_line_2": "Unit 4",
+          "city": "Toronto",
+          "state": "Ontario",
+          "postal_code": "M6J 1X3"
+        },
+        "linkedin": "",
+        "github": "",
+        "websites": [],
+        "excluded_websites": [],
+        "source_resume_md": null,
+        "legal_name_native": null,
+        "resume_contact_lines": [
+          "Toronto, Ontario, Canada · +1 416 555 0182 · l.zolkiewski@example.org"
+        ]
+      },
+      "education": [
+        {
+          "school": "Toronto Metropolitan University",
+          "degree": "B.Sc.N.",
+          "field_of_study_workday": "Nursing",
+          "field_of_study_workday_preferences": ["Nursing", "Registered Nursing", "Nursing Science"],
+          "resume_field_of_study": "Nursing",
+          "gpa": "3.6",
+          "location": "Toronto, Ontario",
+          "start": "09/2010",
+          "start_month": "09",
+          "start_year": "2010",
+          "end": "06/2014",
+          "end_year": "2014",
+          "status": "completed",
+          "resume_location": "Toronto, Ontario",
+          "resume_degree": "B.Sc.N. in Nursing",
+          "resume_date": "Jun 2014"
+        },
+        {
+          "school": "George Brown College",
+          "degree": "Diploma",
+          "field_of_study_workday": "Practical Nursing",
+          "resume_field_of_study": "Practical Nursing",
+          "gpa": "3.8",
+          "location": "Toronto, Ontario",
+          "start": "09/2008",
+          "start_month": "09",
+          "start_year": "2008",
+          "end": "06/2010",
+          "end_year": "2010",
+          "status": "completed",
+          "resume_location": "Toronto, Ontario",
+          "resume_degree": "Diploma in Practical Nursing",
+          "resume_date": "Jun 2010"
+        }
+      ],
+      "work_experience": [
+        {
+          "job_title": "Registered Nurse, Emergency Department",
+          "company": "University Health Network — Toronto General Hospital",
+          "location": "Toronto, Ontario",
+          "from": "06/2018",
+          "to": "Present",
+          "description": "Triage and primary nursing in a downtown Toronto emergency department: assessing and prioritising walk-in and ambulance arrivals, starting and titrating IV therapy, and handing patients over to inpatient teams.",
+          "resume_title": "University Health Network — Registered Nurse, Emergency Department",
+          "resume_dates": "2018.06 – Present",
+          "resume_bullets": [
+            "Triage and primary nurse for a 34-bed emergency department seeing roughly 160 patients a day, including stroke and STEMI activations.",
+            "Started and titrated IV therapy, administered blood products, and verified high-alert medications with an independent double-check.",
+            "Precepted six new graduate nurses through their first year, including their initial triage sign-offs.",
+            "Led three unit quality-improvement projects, including a handoff checklist that cut missed medication reconciliation at admission."
+          ]
+        },
+        {
+          "job_title": "Registered Practical Nurse, Medical-Surgical Unit",
+          "company": "Mount Sinai Hospital",
+          "location": "Toronto, Ontario",
+          "from": "07/2014",
+          "to": "05/2018",
+          "description": "Medical-surgical nursing on a 40-bed unit: admissions and discharge teaching, post-operative care and wound management, and the daily medication round for a team of eight patients.",
+          "resume_title": "Mount Sinai Hospital — Registered Practical Nurse, Medical-Surgical Unit",
+          "resume_dates": "2014.07 – 2018.05",
+          "resume_bullets": [
+            "Carried a team of eight medical-surgical patients per shift: assessments, post-operative care, wound management and discharge teaching.",
+            "Ran the medication round for the team, including anticoagulant and insulin checks, with no reported administration error in four years.",
+            "Co-authored the unit's wound-care reference sheet, still in use as the orientation handout."
+          ]
+        }
+      ],
+      "workday_defaults": {
+        "authorized_to_work_in_us": true,
+        "will_need_visa_sponsorship_now_or_future": false,
+        "opt_cpt_months_remaining_answer": null,
+        "can_relocate_to_job_location": true,
+        "can_relocate_at_own_expense": true,
+        "can_work_onsite_hybrid_or_remote_as_advertised": true,
+        "legally_eligible_to_begin_employment_immediately": true,
+        "earliest_full_time_start_date": "01/2027",
+        "meets_minimum_professional_experience": true,
+        "veteran_status": "I am not a protected veteran",
+        "disability_status": "No, I do not have a disability",
+        "gender": "Man",
+        "race_ethnicity": "White",
+        "race_ethnicity_basis": null,
+        "government_employment_answer_scope": null
+      },
+      "platform_experience": {
+        "twitch_personal_experience": null,
+        "twitch_active_years": null,
+        "creator_economy": []
+      },
+      "job_search_preferences": {
+        "priority_locations": ["Toronto, Ontario", "Mississauga, Ontario", "Remote (Canada)"],
+        "location_strategy": "Toronto first, then the rest of the Greater Toronto Area; remote work in Canada is in scope. US roles are considered only where relocation is expected."
+      },
+      "notes": [
+        "Do not infer work authorisation, sponsorship, citizenship or residency answers from this file: citizenship (United States) and residence (Canada) are two different facts here, and neither decides the other.",
+        "The resume's master DOCX is the one `scripts/setup-examples.sh` installs; the renderer keeps its page setup and three named styles and rebuilds the body from this file."
+      ],
+      "preferred_interview_language": "English",
+      "remote_work_history": {
+        "fact": "None of the roles in work_experience was carried out fully remotely.",
+        "user_confirmed": "2026-10-14",
+        "resume_location": "Toronto, Ontario",
+        "use_for": "The remote/async question on application forms.",
+        "example_answer": null
+      },
+      "resume": {
+        "summary": "I am a registered nurse in Toronto with nine years of acute care behind me, six of them in a downtown emergency department, and I am looking for the next unit where the hard part is the handoff rather than the assessment. I triage walk-in and ambulance arrivals, start and titrate IV therapy, and read telemetry well enough to know when to escalate before the numbers say so. I have precepted six new graduate nurses through their first year and signed off their initial triage decisions, which is where I learned that a checklist only works when the person beside you can say out loud what they are unsure about. What I would bring is the habit of writing a handoff the next nurse can act on.",
+        "skills": [
+          {"label": "Clinical", "value": "Patient assessment and triage, IV therapy and medication administration, telemetry and 12-lead interpretation, wound care"},
+          {"label": "Certifications", "value": "ACLS, BCLS, College of Nurses of Ontario RN registration"},
+          {"label": "Systems", "value": "Epic and Cerner electronic health records, SBAR handoff, charge nurse and preceptorship"}
+        ],
+        "projects": [],
+        "section_order": ["summary", "skills", "experience", "education"]
+      }
+    },
+    "form_specs/answer_rules.json": {
+      "rules": [
+        {
+          "questionRe": "have you (previously |ever )?(been )?employed (by|at|with)|have you worked (for|at)",
+          "kind": "select",
+          "answer": "No",
+          "note": "canonical: no employer in data/application_profile.json is this tenant, and data/applications.csv holds no application to this company either. Check the tracker before trusting it for a tenant that appears there."
+        },
+        {
+          "questionRe": "are you (currently )?registered with the college of nurses|hold .{0,20}(a )?(valid )?cno registration|registration with the college of nurses",
+          "kind": "select",
+          "answer": "Yes",
+          "note": "canonical: candidate.work_authorization_note in data/candidate_profile.json records the College of Nurses of Ontario RN registration. A question asking for the registration NUMBER is not this rule and must be left blank and reported - no number is in the configuration."
+        }
+      ]
+    },
+    "form_specs/ashby_pairs_standing.json": {
+      "rules": [
+        {
+          "questionRe": "have you (previously |ever )?(been )?employed (by|at|with)|have you worked (for|at)",
+          "answer": "no",
+          "note": "canonical: no employer in data/application_profile.json is this tenant, and the tracker holds no application to the company."
+        },
+        {
+          "questionRe": "do you (agree|consent|acknowledge)|i (agree|consent|acknowledge)|privacy (notice|policy)|arbitration",
+          "answer": "yes",
+          "kind": "yesno",
+          "note": "standing answer: required consent and agreement boxes are a Yes, because a form cannot be submitted without one. Marketing and SMS consent are NOT covered - those stay a No unless the person asked for the messages."
+        },
+        {
+          "questionRe": "are you (able|willing) to (work|commute)[^?]{0,40}(office|onsite|on-site)",
+          "answer": "yes",
+          "kind": "yesno",
+          "note": "standing answer: office and commute questions are a Yes, and `standing_answers.relocation` is also Yes."
+        },
+        {
+          "questionRe": "which (office|location) (would you|do you) prefer|preferred (office|location)",
+          "answer": "option",
+          "option": "Toronto",
+          "note": "standing answer: the highest-ranked place the control actually offers, from candidate.standing_answers.preferred_locations.order. `answer: \"option\"` commits the option text rather than a yes/no, and the pair helpers must skip this rule rather than pressing a place into a yes/no widget."
+        }
+      ]
+    },
+    "applications.csv": {
+      "rows": []
+    },
+    "screening/sources.json": {
+      "queries": ["registered nurse", "nurse"],
+      "timezone": "America/Toronto",
+      "filters": {
+        "field_include": ["nurse", "nursing", "registered nurse", "clinical", "patient care"],
+        "field_exclude": ["recruiter", "staffing agency", "sales", "marketing", "finance", "accounting"],
+        "skip_title": ["veterinarian", "dental", "pharmacy", "physician assistant", "medical sales"],
+        "title_topics_exclude": ["veterinary", "dental", "pharmacy"],
+        "region_include": ["Canada", "Ontario", "Toronto", "Mississauga", "Remote"],
+        "region_exclude": ["United States", "USA"],
+        "title_region_include": ["Canada", "Ontario", "Toronto"],
+        "title_region_exclude": ["United States"]
+      },
+      "levels": {
+        "junior": "\\bnew grad|entry level|graduate nurse|registered nurse i\\b|\\brn i\\b",
+        "mid": "\\bregistered nurse ii\\b|\\brn ii\\b|level 2|mid-?level",
+        "senior": "\\bsenior\\b|charge nurse|clinical leader|\\blead\\b",
+        "management": "\\b(?:nurse|nursing|clinical|patient care)\\s+(?:manager|director|lead|head)\\b|\\bdirector of nursing\\b|\\bnurse manager\\b"
+      }
+    },
+    "cover_letter/template.txt": "{{date}}\n\nDear {{company}} Hiring Team,\n\nI am applying for the {{role}} role. I am a registered nurse with {{experience}} of\nacute care experience, most recently at the bedside in an emergency department.\n\nWhat I would bring to this role:\n\n{{skills_line}}\n\nA few things I have done:\n\n{{metrics_lines}}\n\nI am based in {{city_state}} and I am open to relocating for this role.\n\nThank you for your time.\n\nSincerely,\n{{name}}\n{{email}} · {{phone}}\n",
+    "tenant_policies.json": {
+      "tenants": []
+    },
+    "form_specs/tenant_caps.json": {
+      "caps": []
+    },
+    "resume_profiles/toronto_general_rn_emergency.json": {
+      "company": "Toronto General Hospital",
+      "role": "Registered Nurse, Emergency Department",
+      "source": "https://job-boards.greenhouse.io/torontogeneral/jobs/4471002001",
+      "summary": "I am a Registered Nurse with nine years of acute care experience in Toronto, and I am applying to this emergency department because triage is the part of nursing I have chosen to get good at. I assess and prioritise walk-in and ambulance arrivals, start and titrate IV therapy, and hand patients over to the inpatient teams who take them next, and I have precepted six new graduate nurses through their first year on the unit. What I would bring here is the handoff discipline that comes from a department that never really empties: a written record the next nurse can act on, an independent double-check on high-alert medications, and a habit of naming what has not yet been checked.",
+      "track": "nursing",
+      "header_title": "Registered Nurse | Emergency and Acute Care",
+      "template_docx": null,
+      "paragraph_replacements": {},
+      "skills": {},
+      "work_experience": [],
+      "jd_text": "Registered Nurse - Emergency Department. Requirements: current registration with the College of Nurses of Ontario, BCLS, ACLS preferred, two years of emergency or acute care experience. This position is based in Toronto and works onsite on a rotating schedule.",
+      "websites": []
+    }
+  }
+}

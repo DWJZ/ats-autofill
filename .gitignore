@@ -1,0 +1,105 @@
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.pyc
+
+# The project virtualenv (python-docx, pypdf, Pillow, pypdfium2 - see requirements.txt).
+# Recreate it with:
+#   python3 -m venv .venv && .venv/bin/python3 -m pip install -r requirements.txt
+.venv/
+
+# ---------------------------------------------------------------------------
+# Node
+# ---------------------------------------------------------------------------
+# playwright-core is the only runtime dependency; the lock file, if you keep one, stays tracked.
+node_modules/
+.npm-cache/
+
+# ---------------------------------------------------------------------------
+# Scratch space and local cache
+# ---------------------------------------------------------------------------
+# tmp/ holds ad-hoc probes, DOM dumps, render QA directories and run logs.
+# .cache/ holds the Chrome CDP profile and a project-local LibreOffice, if installed.
+tmp/
+.cache/
+
+# One-off probes left in the tree by hand.
+debug_*.mjs
+*_probe*.mjs
+
+# ---------------------------------------------------------------------------
+# Generated output
+# ---------------------------------------------------------------------------
+# output/ is one directory for everything generated, split by type:
+#   output/pdf/            final resumes + cover letters that get uploaded   -> tracked
+#   output/screen/         screening reports (daily_*, newgrad_screen_*)     -> tracked
+#   output/seen_jobs.json  the screener's own dedupe state                   -> tracked
+#   output/metrics/        the append-only ledger and its reports            -> ignored
+#   output/docx/           intermediate resumes                              -> ignored
+#   output/jd/             scraped job-description text                      -> ignored
+#   output/<run>/          per-run fill results and screenshots              -> ignored
+#   output/logs/           run logs                                          -> ignored
+# THE WHOLE DIRECTORY, AND THIS DEPARTS FROM THE CHECKOUT THIS WAS EXTRACTED FROM ON PURPOSE. There,
+# `output/pdf/` and `output/screen/` were deliberately TRACKED - versioning one person's finished resumes
+# and screening reports was useful to them. In a repository meant to be published, the same setting
+# publishes those resumes: a tailored PDF carries the applicant's name, address, phone, employers and
+# history, and the screening reports carry the postings they were considering. Generated output is not
+# source, and none of it belongs in a public history.
+output/
+
+# ---------------------------------------------------------------------------
+# macOS
+# ---------------------------------------------------------------------------
+.DS_Store
+
+# ===========================================================================
+# PERSONAL DATA - NEVER COMMIT ANY OF THIS
+# ===========================================================================
+# This toolkit is built to be pointed at one real person: the config files under
+# data/ hold that person's identity, work history, eligibility answers and the
+# record of every job they applied to. Copying the examples in `examples/` into
+# `data/` is the setup step, and it is also the moment this repository stops
+# being generic.
+#
+# Do not commit them:
+#
+#   data/candidate_profile.json    name, email, phone, links, standing answers,
+#                                  confirmed skills, approved metrics, do_not_claim
+#   data/application_profile.json  address, education, work history, Workday defaults
+#   data/applications.csv          the application tracker: every job applied to
+#   data/form_specs/               per-application fill specs - they contain your answers
+#   data/application_bundles/      per-application manifests
+#   data/cover_letter/template.txt your own letter wording, filled with your own facts
+#   data/tenant_policies.json      what individual employers told you, including rejections
+#   data/tenant_caps.json          the application limits you hit, and how you found out
+#
+# They are ignored below as a safety net. `git add -f` still overrides it, so the
+# ignore file is not the real protection: the real protection is never running a
+# blanket `git add -A` in a directory that holds answers about a real person.
+# A leaked profile is not a code leak - it is a stranger holding your address, your
+# phone number, your visa status and your salary expectation.
+#
+# THE WHOLE DIRECTORY, not a list of the paths that hold an answer today. This was an enumeration, and it
+# fell behind the code three times: `data/resume_templates/` (your master DOCX - the resume itself),
+# `data/screening/sources.json` (the boards you watch), `data/autofill/` (the per-job configs carrying
+# your name, email and phone) and `data/chrome-cdp-profile/` (a browser profile) were all outside it. An
+# enumeration is only ever as complete as the day it was written, and the thing it fails to cover is
+# whatever was added last - which is exactly the file nobody has checked.
+#
+# `data/` holds nothing but your configuration, and everything it is built from lives in `examples/`.
+# There is no file under it this repository means to ship, so there is nothing to name individually.
+data/
+
+# THE PER-PLATFORM CONTROL MAPS UNDER `skills/*/references/` ARE NOT IGNORED, deliberately. They are
+# instruction material the toolkit resolves from inside the checkout rather than user configuration, so a
+# fork that writes its own wants to commit them. The one thing that writes there is the contract fixture
+# runner, which installs invented ones for a single run and removes them on every exit path - and which
+# refuses to run at all when the directory already holds yours.
+
+# --------------------------------------------------- the contract test fixture runner
+# `npm run test:contract` writes its fabricated configuration into a temporary data directory that
+# `ATS_DATA_DIR` points at - never into this checkout's `data/` - so the only thing it puts inside the
+# repository is the per-platform control maps under `skills/*/references/`, installed for one run and
+# removed from one list on every exit path. Listing that path here means a crash or an interrupted run
+# cannot leave fabricated notes looking like shipped documentation.

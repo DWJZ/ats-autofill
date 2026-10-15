@@ -1,0 +1,263 @@
+{
+  "candidate": {
+    "name": "Example Candidate",
+    "location": "Springfield, Illinois, USA",
+    "email": "candidate@example.edu",
+    "linkedin": "https://www.linkedin.com/in/example-candidate",
+    "current_education": "M.S. in Example Field of Study, Lakeside State University, Fairview, expected May 2026",
+    "previous_education": "B.S. in Example Field of Study, Metropolitan Institute of Technology, Jun 2015",
+    "work_authorization_note": "Free text, for anything a form must never assume about you: work authorisation, citizenship, residency, clearance eligibility, sponsorship. It travels with the facts it belongs to, so a later answer cannot quietly contradict it.",
+    "standard_answers": {
+      "age_18_plus": "Yes",
+      "us_work_authorized": "Yes",
+      "sponsorship_required": "No",
+      "work_authorization": "<one of: us_citizen | permanent_resident | authorized_no_sponsorship_needed | requires_sponsorship>",
+      "privacy_notice_ack": "Yes",
+      "gender_identity": "<the option text your form offers>",
+      "race_ethnicity": [
+        "<the option text your form offers>",
+        "<a second one, only if the form allows more than one>"
+      ],
+      "disability": "No",
+      "veteran": "No",
+      "note": "The answers that recur on every ATS form. Each value must be your own fact AND spelled exactly as the form's own option text spells it, because the filler selects an option by its text.",
+      "sexual_orientation": "<the option text your form offers>",
+      "restrictive_agreement": "No",
+      "previously_worked_here": "No",
+      "referred_by_employee": "No",
+      "allow_note": "The three `_agreement` / `_here` / `_employee` answers above are the questions every ATS asks about your history with THIS employer (a non-compete, a previous stint, a referral). They are facts about you, so they live here rather than in the code - and a profile that omits one leaves that question blank and reported instead of being answered for you.",
+      "work_authorization_note": "WHICH WORK-AUTHORISATION REQUIREMENTS DISQUALIFY YOU. A posting that says \"must be a U.S. citizen\" is a wall for one applicant and an open door for another, so the screening asks this value instead of assuming: `us_citizen` meets citizenship, U.S.-person, clearance and no-sponsorship requirements; `permanent_resident` meets all but citizenship and an already-held clearance; `authorized_no_sponsorship_needed` (an EAD, OPT, TN, and so on) meets only the no-sponsorship family; `requires_sponsorship` meets none of them. LEAVE IT AS THIS PLACEHOLDER AND NOTHING IS FILTERED - every posting is kept and its requirement reported - which is the safe direction, because a posting dropped by mistake is one you never learn about."
+    },
+    "standing_answers": {
+      "office_commuting": "Yes",
+      "relocation": "Yes",
+      "required_consent_and_agreement": "Yes",
+      "how_did_you_hear": {
+        "first_choice": "Company official website / careers page",
+        "fallback": "Web search / job search site",
+        "note": "Pick the company's own careers page when the list offers it, otherwise the closest honest source. Never claim a source that is false just to satisfy a required field."
+      },
+      "preferred_location_order": [
+        "Springfield",
+        "Fairview",
+        "Riverside",
+        "Any other location named in the job description"
+      ],
+      "note": "Standing answers are the answers you give every time: office and relocation questions, consent and agreement boxes, how-did-you-hear, and the order in which you rank places. This note records who decided each of them and when, so a later session can tell a user rule from a guess.",
+      "school_not_in_ats_database": {
+        "rule": "When your school is not in the ATS's fixed school list, choose the list's own `Other` option and put the real school name in the accompanying free-text field. Do not leave the field blank."
+      },
+      "cover_letter": {
+        "rule": "When the form has a cover-letter field, render data/cover_letter/template.txt with build_letter (every fact filled by name from the two profiles) and fill it in. Do not leave it blank."
+      },
+      "race_ethnicity_always_answered": {
+        "rule": "State here whether demographic questions are answered or skipped. The point is not the answer, it is that the choice is recorded once instead of being re-decided per form."
+      },
+      "compensation_expectation": {
+        "rule": "When the posting publishes a base-salary range, answer with the TOP of that range. When it publishes none, answer with `standing_answers.compensation.fallback` and record which of the two a number was — 'the employer published this' and 'we chose this' are different facts about an application.",
+        "user_confirmed": "2025-01-01",
+        "example": "Example: a posting that publishes 'USD 120,000 - 150,000' is answered '150,000', in the form's own wording and currency."
+      },
+      "fill_every_known_field": {
+        "rule": "Fill every field whose answer is reliably known, required or not: identity, education, work history, eligibility, office and relocation questions, demographic questions, links, start dates. Required-ness is not the criterion — reliability of the answer is. List anything genuinely unknown for the user instead of inventing it.",
+        "user_confirmed": "2025-01-01",
+        "note": "Skipping an optional-but-answerable field is a reported miss, not caution."
+      },
+      "compensation_expectation_blank_check": {
+        "rule": "If a compensation field is required and the posting publishes no range, still complete every other field, then ask the user for that one value in a single consolidated question.",
+        "user_confirmed": "2025-01-01"
+      },
+      "inferable_answers_filled_directly": {
+        "rule": "If the answer follows from the canonical profiles, fill it without asking — address fields, today's date, 'have you worked here before' when no employer in the profile matches, and declarations whose answer is determined by the recorded facts.",
+        "user_confirmed": "2025-01-01",
+        "note": "Stop and ask only when the profiles genuinely cannot determine the answer."
+      },
+      "electronic_signature_fields": {
+        "rule": "Fill signature fields whose answer is deterministic — typically 'type your full legal first, middle initial and last name' — with the legal name from the profiles. These are name-typing attestations and the value cannot be anything but the legal name.",
+        "user_confirmed": "2025-01-01"
+      },
+      "submit_authorization": {
+        "rule": "Whether the tool may press Submit once the pre-submit review passes, or must always stop and hand the filled tab back. Set this to what you can live with; the code assumes neither.",
+        "user_confirmed": "2025-01-01"
+      },
+      "sponsorship_details_text": {
+        "rule": "Free-text answer for 'if you require sponsorship, please list the type'. Replace with your own wording, and do not name a visa category unless it is accurate.",
+        "value": "Example: one sentence stating your own work-authorisation position, in your own words.",
+        "user_confirmed": "2025-01-01"
+      },
+      "favorite_github_project": {
+        "rule": "When a form asks for a favourite or proudest project, a code sample, or a repository link, answer with this.",
+        "value": "https://github.com/example-candidate/example-project",
+        "user_confirmed": "2025-01-01"
+      },
+      "verification_code_timing": {
+        "rule": "A verification e-mail does not arrive instantly. Wait, then double the wait on each retry, and give up after the last one — leaving the filled tab for the user rather than clicking Submit repeatedly.",
+        "backoff_seconds": [
+          10,
+          20,
+          40,
+          80,
+          160
+        ],
+        "max_attempts": 5,
+        "user_confirmed": "2025-01-01"
+      },
+      "compensation": {
+        "rule": "top_of_published_band",
+        "fallback": 100000,
+        "currency": "USD",
+        "period": "year",
+        "user_rule_date": "2025-01-01",
+        "note": "The one home for this number. `rule` says the answer is the top of the band the posting publishes; `fallback` is what to answer when it publishes none. Keeping the value here rather than in a script or in prose is deliberate: with three copies, two of them drift."
+      },
+      "preferred_locations": {
+        "order": [
+          "Springfield",
+          "Fairview",
+          "Riverside",
+          "Remote (United States)"
+        ],
+        "user_rule_date": "2025-01-01",
+        "note": "A location or relocation control whose options are PLACES is answered with the highest-ranked place the field actually offers — the order is your preference, the field's list decides which of them is available. A relocation question with no place options is answered by `relocation` above."
+      }
+    },
+    "citizenship": "Example Country",
+    "citizenship_note": "Country of citizenship, if you want it answerable. Note the distinction that matters: citizenship is not immigration status, and neither of them is work authorisation. Keep the three separate here so a form cannot blur them.",
+    "websites": [
+      "https://github.com/example-candidate",
+      "https://example.invalid/example-candidate-portfolio"
+    ],
+    "websites_note": "Links that may be given as a portfolio or a personal site, in preference order. A link that has gone stale belongs in `candidate.excluded_websites` of the application profile instead of being deleted from here."
+  },
+  "resume_tracks": {
+    "backend": {
+      "label": "Backend Engineer",
+      "positioning": "Position as an experienced backend engineer with Go/Python APIs, platform services, RBAC, task scheduling, databases, Redis, Docker/Kubernetes, CI/CD, automated testing, and production AI applications as a differentiator.",
+      "default_header_title_comment": "THE LINE UNDER YOUR NAME, for a resume layout that carries one: `job_app_assistant.py tailor` prints the header it resolved, and `default_header_title` here is where a track records the one that should be printed. With none recorded the POSTING's own title is used, and when the posting names no title either the tool says so instead of supplying one. That fallback used to be the literal `Software Engineer` - a job anybody outside software does not hold, in the document that is supposed to describe them - and a second literal overwrote even a recorded value with a staff-flavoured software title whenever the role said `staff` on the profile's ordinary track. Neither literal is in the code any more.",
+      "skill_lines": {
+        "Languages": "Go, Python, SQL, TypeScript, JavaScript",
+        "Backend": "REST APIs, FastAPI, Node.js, RBAC, JWT, Authentication & Authorization, Task Scheduling, API Design",
+        "Databases & Data": "MySQL, PostgreSQL, Redis, MongoDB, Qdrant",
+        "Cloud & DevOps": "AWS, Docker, Kubernetes, GitLab CI/CD, Linux, Git",
+        "AI / LLM": "RAG, LLM Integration, Vector Search, Qwen2",
+        "Engineering": "System Design, Automated Testing, CI/CD"
+      },
+      "skill_lines_senior": {
+        "Backend": "REST APIs, FastAPI, Node.js, RBAC, JWT, Authentication & Authorization, Task Scheduling, Workflow Systems, API Design",
+        "Databases & Data": "MySQL, PostgreSQL, Redis, MongoDB, Qdrant, Data Processing",
+        "Engineering": "System Design, Automated Testing, CI/CD, Technical Design, Code Review, Mentoring"
+      },
+      "skill_lines_comment": "THE SKILL LINES A TAILORED RESUME PRINTS, in your own words, for your own field. `job_app_assistant.py tailor` hands these to the generator, which REPLACES the resume's own Core Skills section with them, so every value here is printed on the document under the candidate's name. They used to be six software lines written into that source, with `fullstack` and `ai_application` branches selecting between them - so a track named anything else put Go, Kubernetes and Qdrant on a nurse's or a lawyer's resume. `skill_lines_senior` is what the same track shows when the posting reads senior (staff, lead, mentor, architecture, platform, workflow, integration) and is MERGED into `skill_lines`, so record only the labels that change. A track that records neither prints the skills from `resume.skills` in application_profile.json instead, which is the honest default. The values here, and the order they are in - which is the order the section prints, and why `Frontend` sits last on the full-stack track - are what the code used to choose, so a checkout configured from this file prints exactly what it printed before.",
+      "resume_files": [
+        "data/resume_templates/Example_Candidate_Backend_Resume.docx"
+      ],
+      "template_docx": "data/resume_templates/Example_Candidate_Backend_Resume.docx",
+      "keywords": [
+        "backend",
+        "api",
+        "rest",
+        "server",
+        "database",
+        "service",
+        "distributed"
+      ]
+    },
+    "fullstack": {
+      "label": "Full-Stack Engineer",
+      "positioning": "Position as an experienced full-stack/product engineer with React/TypeScript plus backend ownership, reusable frontend architecture, real-time systems, and production AI application experience.",
+      "skill_lines": {
+        "Languages": "Go, Python, SQL, TypeScript, JavaScript",
+        "Backend": "REST APIs, FastAPI, Node.js, RBAC, JWT, Authentication & Authorization, API Design",
+        "Databases & Data": "MySQL, PostgreSQL, Redis, MongoDB, Qdrant",
+        "Cloud & DevOps": "AWS, Docker, Kubernetes, GitLab CI/CD, Linux, Git",
+        "AI / LLM": "RAG, LLM Integration, Vector Search, Qwen2",
+        "Engineering": "System Design, Automated Testing, CI/CD, Code Review",
+        "Frontend": "React, TypeScript, Redux, WebSocket, JSON Schema"
+      },
+      "resume_files": [],
+      "template_docx": "data/resume_templates/Example_Candidate_Backend_Resume.docx",
+      "keywords": [
+        "full-stack",
+        "full stack",
+        "frontend",
+        "front-end",
+        "ui",
+        "product engineer"
+      ]
+    },
+    "ai_application": {
+      "label": "AI Application Engineer",
+      "positioning": "Position as a production software engineer who builds AI-powered applications: RAG, LLM integration, vector search, Python/FastAPI, Qdrant, workflow APIs, and deployment. Avoid presenting as an ML research or model-training specialist.",
+      "positioning_comment": "THE ADVICE PRINTED FOR A TRACK, in your own words, for your own field. `job_app_assistant.py` used to hold three paragraphs of ONE person's prose chosen by track NAME (`ai_application`, `fullstack`, and a backend paragraph for every other name), so a profile whose tracks are called anything else was advised to position itself as a backend engineer with Go, Redis and Kubernetes. A track that records no `positioning` prints its own `label` and says where to add one, instead of borrowing another person's. The three values shipped here are the paragraphs that used to be in the source, so a checkout configured from this file prints exactly what it printed before.",
+      "skill_lines": {
+        "Languages": "Go, Python, SQL, TypeScript, JavaScript",
+        "Backend": "FastAPI, REST APIs, Python Services, RBAC, JWT, Task Scheduling, API Design",
+        "Databases & Data": "MySQL, PostgreSQL, Redis, MongoDB, Qdrant",
+        "Cloud & DevOps": "AWS, Docker, Kubernetes, GitLab CI/CD, Linux, Git",
+        "AI / LLM": "RAG, LLM Integration, Vector Search, Semantic Retrieval, Qdrant, Qwen2",
+        "Engineering": "System Design, Data Processing, Automated Testing, CI/CD, Docker Deployment"
+      },
+      "resume_files": [],
+      "template_docx": "data/resume_templates/Example_Candidate_Backend_Resume.docx",
+      "keywords": [
+        "ai",
+        "llm",
+        "retrieval",
+        "vector",
+        "workflow",
+        "automation",
+        "data processing"
+      ]
+    }
+  },
+  "confirmed_skills": [
+    "Example Language A",
+    "Example Language B",
+    "Example Scripting Language",
+    "Example Web Framework",
+    "Example Database",
+    "Example Cache",
+    "Example Cloud Platform",
+    "Example CI System",
+    "Example Testing Tool",
+    "Example Version Control"
+  ],
+  "do_not_claim": [
+    "Example Framework X",
+    "Example Certification Y",
+    "Example Legacy Language",
+    "security clearance",
+    "permanent resident"
+  ],
+  "safe_metrics": [
+    "9+ years of software engineering experience",
+    "40+ shipped features",
+    "6 services owned end to end",
+    "4 teams mentored",
+    "2 platforms migrated"
+  ],
+  "standard_answers": {
+    "heard_of_company": "Yes - for any 'have you heard of <company> before' question, answer Yes.",
+    "education_years": "Example: B.S. Metropolitan Institute of Technology 09/2011-06/2015; M.S. Lakeside State University, Fairview 09/2024-05/2026 (expected).",
+    "outside_employment_or_consulting": "No - for any question about outside employment, consulting, advisory commitments or board seats.",
+    "llm_experience_years": "Example: how many years, in the form's own wording, and say if it includes work experience.",
+    "airline_loyalty_experience": "Example: consumer user only, or the professional experience you actually have.",
+    "ai_assisted_dev_tools_level": "Example: the option text your form offers.",
+    "social_bio_line": "Example: one line you would put in a public profile.",
+    "wondered_question": "Example: the answer you would give to an open 'what are you curious about?' question.",
+    "proficiency_rating": "For any question asking to rate proficiency, skill level or expertise, choose the top option the form offers.",
+    "supervisory_references": "Example: whether a posting that requires previous supervisors as references is skipped or filled.",
+    "how_did_you_hear": "Prefer the company careers page or official website; if neither is offered, the closest honest source. Never invent an option that is not in the list.",
+    "location_scope_widened": "Example: which metros or work arrangements (remote / hybrid / on-site) are in scope, so a screener does not have to ask again.",
+    "current_visa_status": "Example: describe your own status here, in the words you would use on a form.",
+    "current_visa_status_note": "A form that asks you to DESCRIBE your status is a different question from one that asks whether you need sponsorship. Keep both answers explicit so one cannot be read from the other.",
+    "citizenship": "Example Country",
+    "citizenship_note": "Use for citizenship, nationality and export-licensing questions. Do not confuse it with work authorisation or sponsorship.",
+    "ead_expiry": "Example: MM/DD/YYYY, or delete this key if it does not apply to you.",
+    "ead_expiry_note": "A form that asks for an expiry or end date wants this value, while `current_visa_status` answers 'describe your status'."
+  },
+  "do_not_claim_allowed_phrases": [
+    "Example Framework X-backed services"
+  ],
+  "do_not_claim_allowed_phrases_note": "A term in do_not_claim stays forbidden everywhere EXCEPT inside one of these exact phrases. This exists because a term can be true of a PROJECT while still being false as a claim about you: 'we migrated services whose backend was Example Framework X' is a fact about the work, while 'I write Example Framework X' is a claim about you. Add a phrase here only when you can defend it in an interview; the validator rejects every other mention."
+}

@@ -1,0 +1,24 @@
+# ats-autofill Python dependencies (src/pipeline, src/forms, src/screening).
+#
+# Setup - a project-local virtualenv, nothing here depends on a system Python:
+#   python3 -m venv .venv
+#   .venv/bin/python3 -m pip install -r requirements.txt
+#
+# `npm test` and `scripts/setup-examples.sh`'s consumers both expect `.venv/bin/python3`.
+# Everything below is imported by code that is actually in this repo; nothing is carried
+# over "just in case".
+
+# DOCX build and patch (src/pipeline/build_resume.py, generate_tailored_resume.py,
+# build_cover_letter.py, job_app_assistant.py).
+python-docx==1.2.0
+
+# PDF quality checks on the rendered resume (src/pipeline/resume_artifacts.py):
+# page count and text extraction, plus rasterised pages so a blank-looking page can be
+# caught before it is uploaded.
+pypdf==6.19.0
+Pillow==12.3.0
+
+# DOCX -> PDF page rasterisation (src/pipeline/render_docx.py). Using pypdfium2 means no
+# system poppler install is needed. LibreOffice itself is not a pip package - see the
+# "Requirements" section of README.md.
+pypdfium2==5.13.0

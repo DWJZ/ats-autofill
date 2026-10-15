@@ -1,0 +1,29 @@
+{
+  "_readme": "EXAMPLE FILE. The standing table: questions that recur across Ashby forms, answered once here instead of once per application. `ashby_yesno.mjs` and `press_all_pairs.mjs` answer pairs from it, `verify_and_submit.mjs` checks the page against it before submitting, and `ashby_finish_form.mjs` falls back to it. Format: `questionRe` is a case-insensitive regular expression matched against the question as the page words it, `answer` is the value to commit, and `note` says WHERE THE ANSWER COMES FROM. A rule without a note is a guess wearing a configuration file, so every rule here carries one - and so should every rule you add. `kind: \"yesno\"` marks a pair that must be answered as a pair. Fields also seen in the wild: `option` (commit this exact option text instead of a yes/no), `value` (free text), and `why` for a longer rationale than `note` allows.",
+  "version": 1,
+  "rules": [
+    {
+      "questionRe": "have you (previously |ever )?(been )?employed (by|at|with)|have you worked (for|at)",
+      "answer": "no",
+      "note": "EXAMPLE RULE - replace it. It is a truthful No only while the profile's `work_experience` really contains no employer that is this company, one of its subsidiaries, or one of its former names. That is a sentence you have to check against your own history; copied blindly it is a false statement on a real application."
+    },
+    {
+      "questionRe": "do you (agree|consent|acknowledge)|i (agree|consent|acknowledge)|privacy (notice|policy)|arbitration",
+      "answer": "yes",
+      "kind": "yesno",
+      "note": "EXAMPLE RULE - replace it. Required consent and agreement boxes are a standing Yes, because a form that asks for one cannot be submitted without it. Marketing and SMS consent are the exception and are NOT covered by this rule: those are a No unless you actually want the messages."
+    },
+    {
+      "questionRe": "are you (able|willing) to (work|commute)[^?]{0,40}(office|onsite|on-site)",
+      "answer": "yes",
+      "kind": "yesno",
+      "note": "EXAMPLE RULE - replace it. Office and commute questions are a standing Yes for a candidate who will relocate. If a location question offers PLACES rather than Yes/No, do not answer it from this table at all - a place must come from the profile's own preference order, which is what the drafter's relocation path is for."
+    },
+    {
+      "questionRe": "which (office|location) (would you|do you) prefer|preferred (office|location)",
+      "answer": "option",
+      "option": "Example City",
+      "note": "EXAMPLE RULE - replace it. `answer: \"option\"` commits the text in `option` rather than a yes/no, which is what a control offering a LIST needs. This entry is also the reason the file is not all yes/no: the helpers that answer pairs must recognise these and skip them, because pressing a place into a yes/no widget is how a form gets filled with the wrong kind of answer. If every rule you write is yes/no, that skip stops being exercised."
+    }
+  ]
+}

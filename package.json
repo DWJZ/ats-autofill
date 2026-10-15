@@ -1,0 +1,29 @@
+{
+  "name": "ats-autofill",
+  "version": "0.1.0",
+  "description": "Local-first toolkit for filling ATS job-application forms in an already-running Chrome, and for reading back what the page actually committed.",
+  "license": "MIT",
+  "author": "",
+  "private": false,
+  "type": "commonjs",
+  "scripts": {
+    "test": "bash scripts/test-all.sh",
+    "test:python": ".venv/bin/python3 -m unittest discover -s src -t .",
+    "test:node": "node --test \"src/forms/**/test_*.mjs\"",
+    "test:suites": "npm run test:python && npm run test:node",
+    "test:contract": "bash scripts/run-contract-tests.sh"
+  },
+  "keywords": [
+    "job-application",
+    "ats",
+    "chrome-devtools-protocol",
+    "playwright",
+    "automation"
+  ],
+  "dependencies": {
+    "playwright-core": "^1.63.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

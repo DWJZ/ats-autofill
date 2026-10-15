@@ -1,0 +1,39 @@
+{
+  "_fixture": [
+    "FIXTURE FILE - every value in it is invented. It exists for one assertion:",
+    "`test_atoms_profile_uses_reusable_gpa_paragraph_replacement` in",
+    "src/pipeline/test_application_pipeline.py, which pins that a saved role profile may carry",
+    "`paragraph_replacements` - one string in the rendered resume swapped for another - rather than",
+    "needing the template edited by hand for a single application.",
+    "The fixture's own replacement turns the degree paragraph into the same paragraph with the GPA",
+    "appended, because an employer that asks for a minimum GPA is answered by the resume itself.",
+    "Nothing here may be filled into a real application - `data/` is where a real user's answers live."
+  ],
+  "company": "Example Labs",
+  "role": "Software Engineer, New Grad",
+  "source": "https://job-boards.greenhouse.io/example-labs/jobs/8687930002",
+  "track": "backend",
+  "summary": "New-graduate software engineer with backend internship experience: services, scheduled jobs, and the deployment scripts around them. Looking for a team where a graduate owns a small surface end to end and learns from review.",
+  "paragraph_replacements": {
+    "M.S. in Example Field of Study": "M.S. in Example Field of Study | GPA: 4.0"
+  },
+  "skills": {
+    "Languages": "Example Lang A, Example Lang B, SQL",
+    "Backend": "REST APIs, background jobs, relational schemas, automated tests",
+    "Infrastructure": "Containerised development, CI pipelines, Linux"
+  },
+  "work_experience": [
+    {
+      "job_title": "Software Engineering Intern",
+      "company": "Example Systems Ltd",
+      "location": "Example City",
+      "from": "06/2025",
+      "to": "08/2025",
+      "resume_bullets": [
+        "Added an internal scheduling job and the tests around its failure path, replacing a manual weekly step."
+      ]
+    }
+  ],
+  "jd_text": "FIXTURE POSTING TEXT. Software Engineer, New Grad - Example Labs. Graduating between Winter 2026 and Spring 2027, minimum 3.7 GPA, backend fundamentals, and one relational data store. This text is written for the fixture; no real posting is quoted here.",
+  "websites": []
+}

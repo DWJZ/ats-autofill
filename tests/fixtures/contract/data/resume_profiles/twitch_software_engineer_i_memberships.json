@@ -1,0 +1,49 @@
+{
+  "_fixture": [
+    "FIXTURE FILE - every value in it is invented. It exists so that the two assertions in",
+    "src/pipeline/test_application_pipeline.py that read a SAVED ROLE PROFILE have one to read:",
+    "`test_current_twitch_profile_passes_claim_validation` runs this file through",
+    "`application_pipeline.validate_profile`, which is the check that refuses a resume claiming",
+    "something the candidate never confirmed (`do_not_claim`) or carrying a link the profile excludes.",
+    "The company, the role and the summary describe a fictional posting at a fictional board. Nothing",
+    "here may be filled into a real application - `data/` is where a real user's answers live, and this",
+    "file is installed there for the duration of one test run only."
+  ],
+  "company": "Example Streaming Co",
+  "role": "Software Engineer I, Memberships",
+  "source": "https://job-boards.greenhouse.io/example-streaming/jobs/8751076002",
+  "track": "fullstack",
+  "summary": "Software engineer with backend and product engineering experience: REST services, relational and NoSQL data stores, containerised deployments, and user-facing React work. Comfortable owning a feature from schema to interface, writing the tests that keep it working, and debugging it in production. Finishing an M.S. in Example Field of Study, and looking for a product team where the same engineer can move between the service and the screen.",
+  "skills": {
+    "Languages": "Example Lang A, Example Lang B, Example Lang C, SQL",
+    "Backend": "REST APIs, API design, service boundaries, background jobs, authentication flows",
+    "Frontend": "React, TypeScript, component libraries, accessibility basics",
+    "Data and Infrastructure": "PostgreSQL, Redis, containerised local development, CI pipelines, Linux",
+    "Quality": "Automated tests, integration tests, code review, production debugging"
+  },
+  "work_experience": [
+    {
+      "job_title": "Software Engineer",
+      "company": "Example Systems Ltd",
+      "location": "Example City (remote)",
+      "from": "01/2022",
+      "to": "06/2024",
+      "resume_bullets": [
+        "Built and operated REST services for an example workflow product, including request validation, background processing, and the migrations the services depend on.",
+        "Reduced a recurring page-load complaint by reworking one endpoint's query pattern and adding the integration test that now guards it."
+      ]
+    },
+    {
+      "job_title": "Software Engineer (contract)",
+      "company": "Example Data Co",
+      "location": "Example City (on-site)",
+      "from": "07/2021",
+      "to": "12/2021",
+      "resume_bullets": [
+        "Delivered a small internal dashboard over an existing API, from the schema discussion through to the components the team used daily."
+      ]
+    }
+  ],
+  "websites": [],
+  "jd_text": "FIXTURE POSTING TEXT. Software Engineer I, Memberships - Example Streaming Co. The role is a blend of service work and product work: you will own small services end to end, partner with the memberships team on the flows subscribers see, and help keep the subscription paths reliable. This text is written for the fixture, so no real posting is quoted here."
+}

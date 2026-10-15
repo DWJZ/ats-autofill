@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ATS iframe host fixtures</title>
+<style>
+  body { font: 14px/1.5 -apple-system, sans-serif; margin: 24px; }
+  fieldset { margin: 0 0 18px; padding: 12px 14px; border: 1px solid #ccc; }
+  legend { font-weight: 600; }
+  iframe { border: 1px solid #999; width: 620px; height: 260px; }
+</style>
+</head>
+<body>
+<h1>ATS iframe host fixtures</h1>
+<p>The company-hosted shape: the posting's own page is what a search result links to, and the form
+itself lives one frame down.</p>
+
+<!-- 10. THE FORM IS IN AN IFRAME, and the top document has no controls at all. Read live on 2026-10-07:
+     the Asana Greenhouse posting at job-boards.greenhouse.io/asana/jobs/8227390 redirects to
+     asana.com/jobs/apply/8227390, which embeds
+     `job-boards.greenhouse.io/embed/job_app?for=asana&validityToken=...` in an iframe. The scanners read
+     the top document only, so the inventory came back `fields: 0` on a form that was visibly asking for
+     a name. Roblox hit the same shape on 2026-10-06 and the working answer there was to open the embed
+     URL directly rather than to reach into the frame.
+
+     The expensive part is the silence: `fields: 0` reads like "this form has no fields", not like "the
+     form is somewhere else". The src is what makes it recoverable, so the src is what is asserted. -->
+<fieldset id="iframeHost">
+  <legend>iframeHost — the real form one frame down; the top document has no controls</legend>
+  <iframe id="embed" src="iframe_form.html" title="Application form"></iframe>
+</fieldset>
+
+<!-- 11. THE FRAMES THAT ARE NOT FORM LEADS. Almost every careers page carries analytics and consent
+     frames, and they have a src, so a filter that only drops src-less and about:blank frames lets them
+     through. Workable proved the cost on 2026-10-08: its page reported `fields: 0`, the ONLY frame was
+     Google Tag Manager, and the hint therefore pointed away from the real cause - the form had simply
+     not been opened. The src values below carry the tracking hosts the filter matches, but are local
+     paths, so the fixture stays offline. -->
+<fieldset id="trackingFrames">
+  <legend>trackingFrames — analytics frames, which are not where the form is</legend>
+  <iframe id="gtm" src="fixtures-offline/googletagmanager-ns.html" title="tag manager"></iframe>
+  <iframe id="optimizely" src="fixtures-offline/optimizely-client-storage.html" title="experiment"></iframe>
+</fieldset>
+
+<!-- 12. THE FORM HAS NOT BEEN OPENED YET. Workable's `/j/<id>` is the job description plus an "Apply
+     for this job" control and zero fields; the same posting under `/j/<id>/apply` reads six fields
+     with no unknowns. This is the third reason an inventory comes back empty, and unlike the frame
+     case there is nothing to point at unless the apply control is reported. -->
+<fieldset id="applyAffordance">
+  <legend>applyAffordance — the job description, before the form exists on the page</legend>
+  <div>
+    <p>Forward Deployed Engineer — San Francisco, California</p>
+    <a id="apply_link" href="?apply=1">Apply for this job</a>
+  </div>
+</fieldset>
+
+</body>
+</html>

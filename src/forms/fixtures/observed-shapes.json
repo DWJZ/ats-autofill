@@ -1,0 +1,191 @@
+{
+  "generated_from": {
+    "inventories": 905,
+    "controls": 16246
+  },
+  "element_shapes": [
+    {
+      "tag": "input",
+      "type": "text",
+      "seen": 6435,
+      "example": "id:_systemfield_name",
+      "fixture": "ats_widgets.html",
+      "ref": "id:_systemfield_name"
+    },
+    {
+      "tag": "input",
+      "type": "radio",
+      "seen": 4056,
+      "example": "id:299f4d61-cec4-497b-8710-fc68dbcf36b4_8cae2bb8-d660-435b-8",
+      "fixture": "ats_widgets.html",
+      "ref": "name:auth_choice"
+    },
+    {
+      "tag": "input",
+      "type": "checkbox",
+      "seen": 1818,
+      "example": "id:d627cd9f-3e91-4555-b754-8bf8b57b2c09_06c64aa3-57d8-4673-8",
+      "fixture": "ats_widgets.html",
+      "ref": "id:sprinter_yes"
+    },
+    {
+      "tag": "input",
+      "type": "file",
+      "seen": 1606,
+      "example": "",
+      "fixture": "ats_widgets.html",
+      "ref": "id:fu_resume"
+    },
+    {
+      "tag": "textarea",
+      "type": "",
+      "seen": 645,
+      "example": "id:2067782e-b262-402b-a046-95dd3d0bf9f4",
+      "fixture": "ats_widgets.html",
+      "ref": "id:lt_summary"
+    },
+    {
+      "tag": "input",
+      "type": "email",
+      "seen": 561,
+      "example": "id:_systemfield_email",
+      "fixture": "ats_widgets.html",
+      "ref": "id:it_email"
+    },
+    {
+      "tag": "input",
+      "type": "tel",
+      "seen": 476,
+      "example": "id:09194297-1079-41fe-9c8a-98e60fefb596",
+      "fixture": "ats_widgets.html",
+      "ref": "id:it_tel"
+    },
+    {
+      "tag": "input",
+      "type": "",
+      "seen": 284,
+      "example": "Phone",
+      "fixture": "ats_widgets.html",
+      "ref": "id:school_input"
+    },
+    {
+      "tag": "input",
+      "type": "url",
+      "seen": 197,
+      "example": "id:46bb0240-c43a-4bac-8c3e-1d689d288bfb",
+      "fixture": "ats_widgets.html",
+      "ref": "id:it_url"
+    },
+    {
+      "tag": "input",
+      "type": "number",
+      "seen": 70,
+      "example": "id:start-year--0",
+      "fixture": "ats_widgets.html",
+      "ref": "id:it_number"
+    },
+    {
+      "tag": "select",
+      "type": "",
+      "seen": 65,
+      "example": "name:eeo[gender]",
+      "fixture": "ats_widgets.html",
+      "ref": "id:ns_country"
+    },
+    {
+      "tag": "textarea",
+      "type": "text",
+      "seen": 25,
+      "example": "id:summary",
+      "fixture": "ats_widgets.html",
+      "ref": "id:lt_typed"
+    },
+    {
+      "tag": "button",
+      "type": "button",
+      "seen": 4,
+      "example": "Are you legally authorized to work in the country where this",
+      "fixture": "ats_widgets.html",
+      "ref": "id:hp_container"
+    },
+    {
+      "tag": "span",
+      "type": "",
+      "seen": 3,
+      "example": "",
+      "fixture": "ats_widgets.html",
+      "ref": "id:rce_country"
+    },
+    {
+      "tag": "input",
+      "type": "search",
+      "seen": 1,
+      "example": "id:ql-search",
+      "fixture": "ats_widgets.html",
+      "ref": "id:it_search"
+    }
+  ],
+  "uncovered": [],
+  "fingerprints": [
+    {
+      "fingerprint": "widget/v1/text_input/standard",
+      "fixture": "ats_widgets.html",
+      "ref": "id:_systemfield_name"
+    },
+    {
+      "fingerprint": "widget/v1/checkbox/standard",
+      "fixture": "ats_widgets.html",
+      "ref": "id:sprinter_yes"
+    },
+    {
+      "fingerprint": "widget/v1/radio_group/standard",
+      "fixture": "ats_widgets.html",
+      "ref": "name:auth_choice"
+    },
+    {
+      "fingerprint": "widget/v1/react_select/standard",
+      "fixture": "ats_widgets.html",
+      "ref": "id:school_control"
+    },
+    {
+      "fingerprint": "widget/v1/input_combobox/toggle",
+      "fixture": "ats_widgets.html",
+      "ref": "id:office_input"
+    },
+    {
+      "fingerprint": "widget/v1/native_select/standard",
+      "fixture": "ats_widgets.html",
+      "ref": "id:ns_country"
+    },
+    {
+      "fingerprint": "widget/v1/native_multi_select/standard",
+      "fixture": "ats_widgets.html",
+      "ref": "id:ns_offices"
+    },
+    {
+      "fingerprint": "widget/v1/textarea/standard",
+      "fixture": "ats_widgets.html",
+      "ref": "id:lt_summary"
+    },
+    {
+      "fingerprint": "widget/v1/file_upload/standard",
+      "fixture": "ats_widgets.html",
+      "ref": "id:fu_resume"
+    },
+    {
+      "fingerprint": "widget/v1/input_combobox/input",
+      "fixture": "ats_widgets.html",
+      "ref": "id:rce_country"
+    },
+    {
+      "fingerprint": "widget/v1/button_pair/hidden-input",
+      "fixture": "ats_widgets.html",
+      "ref": "id:hp_container"
+    },
+    {
+      "fingerprint": "widget/v1/div_dropdown/standard",
+      "fixture": "ats_widgets.html",
+      "ref": "id:state_trigger"
+    }
+  ]
+}

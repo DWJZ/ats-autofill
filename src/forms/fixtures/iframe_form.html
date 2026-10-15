@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Embedded application form</title>
+<style>body { font: 14px/1.5 -apple-system, sans-serif; margin: 12px; }</style>
+</head>
+<body>
+<!-- The fields the host page hides behind its iframe. Loaded only as the `src` of
+     ats_widgets_iframe.html's frame; nothing scans into it, which is the point of the fixture. -->
+<fieldset id="embeddedForm">
+  <legend>embeddedForm — the fields behind the iframe the top document cannot see</legend>
+  <div>
+    <label for="embed_name">Name</label>
+    <input type="text" id="embed_name" name="name" value="">
+  </div>
+  <div>
+    <label for="embed_email">Email</label>
+    <input type="text" id="embed_email" name="email" value="">
+  </div>
+</fieldset>
+</body>
+</html>

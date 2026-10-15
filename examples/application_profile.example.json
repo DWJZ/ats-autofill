@@ -1,0 +1,215 @@
+{
+  "candidate": {
+    "first_name": "Example",
+    "last_name": "Candidate",
+    "name_pronunciation": "eg-ZAM-pul KAN-di-dit",
+    "email": "candidate@example.edu",
+    "phone": {
+      "country": "United States of America",
+      "country_code": "+1",
+      "number": "5551234567",
+      "formatted": "+1 555 123 4567",
+      "device_type": "Mobile"
+    },
+    "high_school": {
+      "name": "Example High School",
+      "graduation_year": "2012"
+    },
+    "address": {
+      "country": "United States of America",
+      "address_line_1": "123 Example Street",
+      "address_line_2": "Unit 4",
+      "city": "Springfield",
+      "state": "Illinois",
+      "postal_code": "12345"
+    },
+    "linkedin": "https://www.linkedin.com/in/example-candidate",
+    "github": "https://github.com/example-candidate",
+    "preferred_login_method": "Google",
+    "login_handling": "Stop on login pages and wait for the user. Do not enter passwords, try email-password login, or proceed through account authentication automatically.",
+    "websites": [],
+    "excluded_websites": [
+      {
+        "url": "https://example.invalid/deprecated-portfolio/",
+        "reason": "Example: a link that is no longer maintained, kept here so it is not re-added to an application later."
+      }
+    ],
+    "source_resume_md": "data/resume_sources/example_candidate_resume.md",
+    "base_resume_docx": "data/resume_templates/Example_Candidate_Backend_Resume.docx",
+    "legal_name_native": "示例姓名",
+    "legal_name_native_note": "Example placeholder for a 'Full Legal Name in Native Language' field. Replace it with your own legal name in your own script, or delete the key if no form would ask.",
+    "name": "Example Candidate",
+    "resume_contact_lines": [
+      "Springfield, Illinois · +1 555 123 4567 · candidate@example.edu",
+      "https://www.linkedin.com/in/example-candidate · https://github.com/example-candidate"
+    ]
+  },
+  "education": [
+    {
+      "school": "Lakeside State University, Fairview",
+      "degree": "M.S.",
+      "field_of_study_workday": "Example Field of Study",
+      "field_of_study_workday_preferences": [
+        "Example Field of Study",
+        "Example Related Field",
+        "Example Broader Field"
+      ],
+      "resume_field_of_study": "Example Field of Study",
+      "gpa": "0.0",
+      "location": "Fairview, Illinois",
+      "start": "09/2024",
+      "start_month": "09",
+      "start_year": "2025",
+      "end": "05/2026",
+      "end_year": "2026",
+      "status": "expected",
+      "resume_location": "Fairview, Illinois",
+      "resume_degree": "M.S. in Example Field of Study",
+      "resume_date": "Expected May 2026"
+    },
+    {
+      "school": "Metropolitan Institute of Technology",
+      "degree": "B.S.",
+      "field_of_study_workday": "Example Field of Study",
+      "resume_field_of_study": "Example Field of Study & Specialisation",
+      "gpa": "0.0",
+      "location": "Riverside, Illinois",
+      "start": "09/2011",
+      "start_month": "09",
+      "start_year": "2012",
+      "end": "06/2015",
+      "end_year": "2016",
+      "resume_location": "Riverside, Illinois",
+      "resume_degree": "B.S. in Example Field of Study & Specialisation",
+      "resume_date": "Jun 2015"
+    }
+  ],
+  "work_experience": [
+    {
+      "job_title": "Example Current Job Title",
+      "company": "Example Company One",
+      "location": "Springfield, Illinois",
+      "from": "01/2020",
+      "to": "12/2024",
+      "description": "One or two plain sentences about what you actually did in this role. This is the sentence a form's free-text 'describe your responsibilities' field can be answered from.",
+      "resume_title": "Example Company One — Example Current Job Title",
+      "resume_dates": "2020.01 – 2024.12",
+      "resume_bullets": [
+        "Example bullet: what you built, and what changed because you built it — using only facts you could defend in an interview.",
+        "Example bullet: a number you are allowed to quote, phrased the way you would say it out loud.",
+        "Example bullet: something you owned end to end, so a reader can tell the difference between participating and owning."
+      ]
+    },
+    {
+      "job_title": "Example Earlier Job Title",
+      "company": "Example Company Two",
+      "location": "Remote (Illinois)",
+      "from": "06/2015",
+      "to": "12/2019",
+      "description": "One or two plain sentences about this role as well, in the same voice as the first one.",
+      "resume_title": "Example Company Two — Example Earlier Job Title",
+      "resume_dates": "2016.06 – 2019.12",
+      "resume_bullets": [
+        "Example bullet: the work you would still be happy to be asked about.",
+        "Example bullet: a second one, kept short enough to read at a glance."
+      ]
+    }
+  ],
+  "workday_defaults": {
+    "has_worked_for_snap_or_subsidiary": false,
+    "big_four_employee_current_or_prior_18_months": false,
+    "authorized_to_work_in_us": true,
+    "work_authorization_based_on_spouse_status": false,
+    "currently_in_us_on_f1_student_visa": false,
+    "will_need_visa_sponsorship_now_or_future": false,
+    "active_immigration_case": false,
+    "opt_cpt_months_remaining_answer": "Example: a sentence describing how much work authorisation you currently hold, and what you expect to be eligible for next. Delete the key if no such question applies to you.",
+    "can_relocate_to_job_location": true,
+    "can_relocate_at_own_expense": true,
+    "can_work_onsite_hybrid_or_remote_as_advertised": true,
+    "legally_eligible_to_begin_employment_immediately": true,
+    "earliest_full_time_start_date": "MM/YYYY",
+    "meets_minimum_professional_experience": true,
+    "veteran_status": "<the exact option text your form offers>",
+    "disability_status": "<the exact option text your form offers>",
+    "gender": "<the exact option text your form offers>",
+    "race_ethnicity": "<the exact option text your form offers>",
+    "race_ethnicity_basis": "<the sub-option, only if the form asks for one>",
+    "ai_notetaker_consent": true,
+    "government_employment_questions": false,
+    "government_employment_answer_scope": "Example: say whose employment these questions are about (yours, your immediate family's) and how they are answered, so one answer cannot be applied outside its scope."
+  },
+  "platform_experience": {
+    "twitch_personal_experience": "<the option text the form offers, or the honest 'no personal experience' option>",
+    "twitch_active_years": "<a number, or the form's own 'not applicable' option>",
+    "creator_economy": [
+      {
+        "platform": "Example Platform",
+        "years": "0"
+      }
+    ]
+  },
+  "job_search_preferences": {
+    "priority_locations": [
+      "Springfield, Illinois",
+      "Fairview, Illinois",
+      "Remote (United States)"
+    ],
+    "location_strategy": "One sentence on how location is weighed, so a screener does not re-decide it per posting."
+  },
+  "resume_output_preferences": {
+    "application_upload_format": "pdf",
+    "delivery_format": "pdf",
+    "docx_usage": "DOCX is the internal template and the intermediate artifact; the uploaded file is the rendered PDF."
+  },
+  "notes": [
+    "Free-form notes about the profile itself: which file is the source of the other, what must not be inferred, and any instruction that has no better home.",
+    "Example: do not infer work authorisation, sponsorship, citizenship or residency answers from this file.",
+    "Example: a preference that supersedes an earlier one is recorded here with its date, so the older value is not re-used."
+  ],
+  "preferred_interview_language": "Example Language A / Example Language B",
+  "remote_work_history": {
+    "fact": "Example: which role in work_experience was carried out remotely, with the dates, in one sentence.",
+    "user_confirmed": "2025-01-01",
+    "resume_location": "Remote (Illinois)",
+    "use_for": "The remote/async question on application forms, and the location line of that role on the resume.",
+    "example_answer": "Example: two or three sentences you would actually give to 'describe your experience working remotely', built from the fact above."
+  },
+  "resume": {
+    "summary": "I am an example engineer: this profile ships with the repository so the schema is visible, and every sentence in it is invented. Replace this paragraph with your own summary, in the first person - what you build, the languages and systems you build it in, how long you have been doing it, and the one piece of work you would lead with in an interview. Keep it between roughly 450 and 800 characters: the layout reserves about that much space, so a longer summary pushes the rest of the page out and a much shorter one leaves a visible gap. Write it the way you would say it out loud, and do not state anything you could not defend on a whiteboard.",
+    "skills": [
+      {
+        "label": "Languages",
+        "value": "Example Language A, Example Language B, Example Scripting Language"
+      },
+      {
+        "label": "Backend",
+        "value": "Example Web Framework, Example Database, Example Cache"
+      },
+      {
+        "label": "Platform",
+        "value": "Example Cloud Platform, Example CI System, Example Version Control"
+      }
+    ],
+    "projects": [
+      {
+        "title": "Example Project — what it was · your role on it",
+        "dates": "2023.01 – 2024.06",
+        "bullets": [
+          "Example bullet: what the project did and what your part in it was.",
+          "Example bullet: the technical decision you made, and why it was the right one.",
+          "Example bullet: the outcome, in a number you can support."
+        ],
+        "description": "One sentence describing the project for a reader who has never heard of it.",
+        "stack": " Example Technology A, Example Technology B"
+      }
+    ],
+    "section_order": [
+      "summary",
+      "skills",
+      "experience",
+      "projects",
+      "education"
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+{{date}}
+
+Dear {{company}} Hiring Team,
+
+I am applying for the {{role}} role. I am {{article}} {{degree}} from {{school}}, and I have
+{{experience}} building and shipping production software.
+
+What I would bring to this role:
+
+{{skills_line}}
+
+A few things I have done:
+
+{{metrics_lines}}
+
+I am based in {{city_state}} and I am open to relocating for this role.
+
+Thank you for your time.
+
+Sincerely,
+{{name}}
+{{email}} · {{phone}}

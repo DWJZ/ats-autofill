@@ -1,0 +1,69 @@
+{
+  "_readme": [
+    "FIXTURE FILE. The operative record of every tenant application limit, as a contract test fixture:",
+    "scripts/run-contract-tests.sh installs it into data/form_specs/tenant_caps.json for one test run and",
+    "removes it afterwards. It is read by the preflight before a form is opened, so a capped board is",
+    "refused BEFORE any material is written - a cap discovered at Submit costs a complete fill.",
+    "Fields: slug (THE ATS BOARD SLUG as the posting url carries it, NOT the company name - `applied` and",
+    "`oneapp` are two boards that were once keyed by company name and therefore never fired), cap (max",
+    "submissions in the window), window_days (0 = no window, count them all), kind ('count' | 'active' |",
+    "`one_at_a_time` | 'same_role_cooldown'), note, source, and optional also_stated - a LIST of further",
+    "limits the same tenant states elsewhere ({cap, window_days, kind, source}).",
+    "EVERY STATED LIMIT IS ENFORCED and the board is refused when ANY of them is reached: one employer can",
+    "publish one number and enforce another, and keeping only the published one makes a board look open",
+    "while the tenant is refusing it.",
+    "The four slugs `roblox`, `coinbase`, `applied` and `oneapp` are the boards this fixture is named for;",
+    "each has tracker rows in tests/fixtures/contract/data/tracker/fresh.csv so that its cap can count, and",
+    "the suite asserts that EVERY slug here can reach at least one tracker row."
+  ],
+  "caps": [
+    {
+      "slug": "roblox",
+      "cap": 5,
+      "window_days": 30,
+      "kind": "count",
+      "note": "FIXTURE ENTRY. Five applications in thirty days. This is the harsher kind: the board CLOSES the excess rather than refusing it, so a sixth submission inside the window is not rejected - it is withdrawn, and the application is spent rather than advanced. One of the tracked rows sits on the employer's own careers site (careers.roblox.com) rather than on the board, which is the row a url-only count misses.",
+      "source": "fixture - the tenant's own 'application limit' e-mail, quoted in the note rather than paraphrased"
+    },
+    {
+      "slug": "coinbase",
+      "cap": 3,
+      "window_days": 180,
+      "kind": "count",
+      "note": "FIXTURE ENTRY, and the case the `also_stated` field exists for: the POSTING states three applications in six months while the tenant's own mail states four in thirty days. Both are recorded and both are enforced, because a board that looks open under the posted figure is refused by the mailed one - and three of the mailed notices arrived for requisitions that had already been submitted and confirmed.",
+      "source": "fixture - the tail of the posting, after the pay range",
+      "also_stated": [
+        {
+          "cap": 4,
+          "window_days": 30,
+          "kind": "count",
+          "source": "fixture - the tenant's own 'application limit reached' e-mail"
+        }
+      ]
+    },
+    {
+      "slug": "applied",
+      "cap": 1,
+      "window_days": 0,
+      "kind": "one_at_a_time",
+      "note": "FIXTURE ENTRY. `one_at_a_time` is a STATE, not a count over time, so window_days is 0: an application from two years ago still occupies the slot the tenant allows. This board is the expensive one, because a second concurrent application is refused at Submit.",
+      "source": "fixture - observed refusal at Submit, with the board's own wording in the note"
+    },
+    {
+      "slug": "oneapp",
+      "cap": 1,
+      "window_days": 0,
+      "kind": "same_role_cooldown",
+      "note": "FIXTURE ENTRY. One application per role inside the cooldown window, counted BOARD-WIDE because no caller passes a role title in. That is a known, accepted limitation: with three board-wide submissions on record this blocks a role that was never applied to, and a false block costs one application while a duplicate costs the candidate's credibility.",
+      "source": "fixture - the tenant's form, which states the cooldown in its own words"
+    },
+    {
+      "slug": "example-board",
+      "cap": 2,
+      "window_days": 180,
+      "kind": "count",
+      "note": "FIXTURE ENTRY for a board with no history behind it: two applications per 180 days, stated on the board itself. Kept in this file so the suite has one cap whose count is zero - a cap that has never fired is the state that hides an entry which can never fire at all.",
+      "source": "fixture - the board's own FAQ"
+    }
+  ]
+}

@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ATS widget fixtures</title>
+<style>
+  body { font: 14px/1.5 -apple-system, sans-serif; margin: 24px; }
+  fieldset { margin: 0 0 18px; padding: 12px 14px; border: 1px solid #ccc; }
+  legend { font-weight: 600; }
+  .pair { display: inline-flex; gap: 6px; }
+  .pair button { padding: 4px 12px; }
+  .hidden-box { width: 0; height: 0; opacity: 0; position: absolute; }
+  .select__control { border: 1px solid #999; padding: 6px 8px; width: 260px; cursor: pointer; }
+  .select__single-value { color: #111; }
+  .select__menu { border: 1px solid #999; margin-top: 2px; width: 260px; }
+  .select__option { padding: 4px 8px; cursor: pointer; }
+  .trigger { border: 1px dashed #999; padding: 6px 8px; width: 200px; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>ATS widget fixtures</h1>
+<p>Each fieldset reproduces one widget shape the project has had to drive. It exists so the fillers can be
+verified without touching a live application. <code>nameOnlyPair</code> is the shape that broke
+<code>answer_by_checkbox.mjs</code> (Sprinter Health, 2026-10-03).</p>
+
+<!-- FIXTURE ARTEFACT, and it costs a round if you do not know about it. Every <legend> below QUOTES its fieldset's
+     question verbatim, so a question-matching regex finds the question in the page-level container as well as in
+     the fieldset. A tool that reports "N matches" therefore over-counts by one per question asked, and the extra
+     match is the whole page. It is an artefact of writing the questions into the legends, not a real page shape:
+     a live form does not repeat every question in its own header. Confirmed 2026-10-07 - the over-count is
+     identical before and after click_group_option.mjs learned to read label-less options, so it is not caused by
+     that change. Do not "fix" the tool for it. Ask a question whose text appears ONLY inside its fieldset, or read
+     the tab=0 line rather than the count, when you need a clean signal. -->
+
+<!-- A TALL SPACER, deliberately: every control below it sits off-screen on load, so `scrollIntoView` inside a
+     press actually has to scroll. That is the condition under which measuring coordinates in the SAME evaluate
+     as the scroll returns a stale rect - the Discord bug (`top = -673`) recorded in pick_select_option.mjs.
+     Scoring the fixture on a short page hides that class of failure. -->
+<div id="spacer" style="height:1400px; background:repeating-linear-gradient(#eee 0 40px,#fff 40px 80px)">
+  <p style="padding:8px">spacer — the fields below start below the fold</p>
+</div>
+
+<!-- 0. THE SYSTEM FIELDS. `cdp_tabs.mjs dedupe-tabs` (which absorbed dedupe_tabs.mjs) decides which of several tabs
+     pointing at the same posting is the filled one by reading `#_systemfield_name`, and treats a tab without it as
+     NEITHER filled nor blank - so on a fixture missing these two ids every tab falls through to "single meaningful
+     tab" and the logic under test never runs. They are here so that path is testable. The companion page
+     ats_widgets_blank.html has the same markup with these left empty, so a two-tab test has one of each. -->
+<fieldset id="systemFields">
+  <legend>systemFields — _systemfield_name / _systemfield_email</legend>
+  <div>
+    <label for="_systemfield_name">Name</label>
+    <input type="text" id="_systemfield_name" name="_systemfield_name" value="Test Candidate">
+  </div>
+  <div>
+    <label for="_systemfield_email">Email</label>
+    <input type="text" id="_systemfield_email" name="_systemfield_email" value="candidate@example.com">
+  </div>
+</fieldset>
+
+<!-- 1. NAME-ONLY PAIR: two checkboxes whose NAME attributes are literally "Yes" and "No" - there is no field
+     uuid to anchor on, which is the shape that broke answer_by_checkbox.mjs (Sprinter Health, 2026-10-03).
+     The labels are siblings bound by `for`, which is how a real form writes them and what a press must target:
+     an unbound label cannot toggle its input, so a fixture with one would test nothing. -->
+<fieldset id="nameOnlyPair">
+  <legend>nameOnlyPair — checkboxes named "Yes"/"No", sibling labels bound by for</legend>
+  <div>
+    Are you currently located in the Greater Seattle area?
+    <div class="pair">
+      <input type="checkbox" id="sprinter_yes" name="Yes"> <label for="sprinter_yes">Yes</label>
+      <input type="checkbox" id="sprinter_no" name="No"> <label for="sprinter_no">No</label>
+    </div>
+  </div>
+</fieldset>
+
+<!-- 2. STANDARD HIDDEN PAIR: the Ashby shape. Two buttons over ONE hidden checkbox whose name is the field
+     uuid, and the question sits in the container. -->
+<fieldset id="hiddenPair">
+  <legend>hiddenPair — Ashby buttons over one hidden uuid checkbox</legend>
+  <div id="hp_container">
+    <div>Do you now or in the future require visa sponsorship to work in the United States?</div>
+    <input class="hidden-box" type="checkbox" id="hp_box" name="0f2a1c34-5b6d-4e7f-8a90-1b2c3d4e5f60">
+    <div class="pair">
+      <button type="button" data-option="yes">Yes</button>
+      <button type="button" data-option="no">No</button>
+    </div>
+  </div>
+</fieldset>
+
+<!-- 3. RADIO PAIR: the same question drawn as radios, which a checkbox-climbing scanner cannot see at all. -->
+<fieldset id="radioPair">
+  <legend>radioPair — drawn as radios, not checkboxes</legend>
+  <div>
+    Are you legally authorized to work in the United States?
+    <div>
+      <label><input type="radio" name="auth_choice" value="Yes"> Yes</label>
+      <label><input type="radio" name="auth_choice" value="No"> No</label>
+    </div>
+  </div>
+</fieldset>
+
+<!-- 4. REACT-SELECT SHAPE: control wrapper + singleValue node; the menu is rendered on demand. -->
+<fieldset id="reactSelect">
+  <legend>reactSelect — react-select style control, two options</legend>
+  <div>
+    <label id="lbl_school">School</label>
+    <div class="select__control" id="school_control" role="combobox" aria-controls="school_listbox">
+      <span class="select__single-value"></span>
+      <input id="school_input" role="combobox" aria-autocomplete="list" aria-controls="school_listbox">
+    </div>
+    <div id="school_listbox" class="select__menu" role="listbox" style="display:none">
+      <div class="select__option" role="option">Lakeside State University - Fairview</div>
+      <div class="select__option" role="option">Fairview College</div>
+    </div>
+  </div>
+</fieldset>
+
+<!-- 5. BARE "SELECT..." DIV: answered_div_dropdown.mjs's widget class — a div whose text is the placeholder. -->
+<fieldset id="divDropdown">
+  <legend>divDropdown — a bare div reading SELECT...</legend>
+  <div>
+    <div>Which state do you plan on working from?</div>
+    <div id="state_trigger" class="trigger" role="button">SELECT...</div>
+    <div id="state_menu" style="display:none">
+      <div class="select__option" role="option">California</div>
+      <div class="select__option" role="option">Washington</div>
+    </div>
+  </div>
+</fieldset>
+
+<!-- 6. RADIO GROUP, ASHBY-STYLE: four options whose visible text is deliberately NOT reachable by a generic
+     text selector, because each label is rendered by a nested element with no `for` and no wrapper — the shape
+     click_radio_plan.mjs exists for. Its option ids are stable here and its text is "out of reach", which is the
+     opposite claim to click_group_option.mjs's ("ids drift, the label is the handle"). Both tools are live-reachable
+     through verify_and_submit.mjs, so the merge has to satisfy both: press by label when it can be read, by id when
+     it cannot. This fieldset is what decides whether that is possible. -->
+<fieldset id="ashbyRadioGroup">
+  <legend>ashbyRadioGroup — 4 options, label text not reachable generically</legend>
+  <div id="rg_container">
+    <div class="rg-name">Which team would you join?</div>
+    <div class="rg-options">
+      <div class="rg-opt"><span class="rg-ico"></span>
+        <input type="radio" name="rg_team" id="rg_opt_a1b2c3" value="infra">
+        <div class="rg-text"><div><span>Infrastructure</span></div></div>
+      </div>
+      <div class="rg-opt"><span class="rg-ico"></span>
+        <input type="radio" name="rg_team" id="rg_opt_d4e5f6" value="product">
+        <div class="rg-text"><div><span>Product Engineering</span></div></div>
+      </div>
+      <div class="rg-opt"><span class="rg-ico"></span>
+        <input type="radio" name="rg_team" id="rg_opt_g7h8i9" value="ml">
+        <div class="rg-text"><div><span>Machine Learning</span></div></div>
+      </div>
+      <div class="rg-opt"><span class="rg-ico"></span>
+        <input type="radio" name="rg_team" id="rg_opt_j0k1l2" value="security">
+        <div class="rg-text"><div><span>Security</span></div></div>
+      </div>
+    </div>
+  </div>
+</fieldset>
+
+<!-- 7. ASHBY'S OWN COMBOBOX, which is neither a react-select nor a native select. Shape taken from TRM Labs
+     (2026-10-02): an `input[type=text][role=combobox]` with an obfuscated class inside a `_fieldEntry_` div, next
+     to a `_toggleButton_` BUTTON that opens the list. pick_select_arrow reported "control not found" on it because
+     there is no `select__control`; apply_form_spec's `selects` entries cannot touch it because it is not a
+     `<select>`; answer_by_question_text types into it and honestly reports that nothing landed. Do not "simplify"
+     this shape - the obfuscated class names and the sibling toggle are exactly what makes it a separate case. -->
+<fieldset id="ashbyCombobox">
+  <legend>ashbyCombobox — input[role=combobox] + sibling _toggleButton_</legend>
+  <div class="_fieldEntry_1a2b3c">
+    <div class="_label_1a2b3c">Which office would you work from?</div>
+    <div class="_inputWrapper_1a2b3c">
+      <input type="text" role="combobox" class="_input_d7ago_28" id="office_input"
+             aria-expanded="false" aria-controls="office_list" autocomplete="off">
+      <button type="button" class="_toggleButton_1a2b3c" aria-label="Toggle options"></button>
+    </div>
+    <div id="office_list" role="listbox" style="display:none">
+      <div role="option" class="_option_1a2b3c">San Francisco</div>
+      <div role="option" class="_option_1a2b3c">Seattle</div>
+      <div role="option" class="_option_1a2b3c">New York</div>
+    </div>
+  </div>
+</fieldset>
+
+<!-- 8. NO ID AND NO NAME: Alchemy's Ashby form, read live on 2026-10-07. The inventory lists the
+     control and now reads its question correctly, but `ref` comes back EMPTY, because the input
+     carries neither an id nor a name - and the fallback `key` is `input:<n>`, an ordinal that moves
+     when the page mounts its sections in a different order. So a fill spec has nothing stable to
+     address it by, which is exactly why "How did you hear about this role?" needed `--html` and
+     three rounds of hand-written selectors. The obfuscated classes are kept verbatim: they are what
+     the shape is. -->
+<fieldset id="noRefInput">
+  <legend>noRefInput — no id, no name, question in a div._label_</legend>
+  <div class="_fieldEntry_9f8e7d">
+    <div class="_label_9f8e7d">How did you hear about this role?</div>
+    <div class="_inputWrapper_9f8e7d">
+      <input type="text" role="combobox" class="_input_a1b2c3" aria-expanded="false"
+             aria-controls="ndh_list" autocomplete="off">
+      <button type="button" class="_toggleButton_9f8e7d" aria-label="Toggle options"></button>
+    </div>
+    <div id="ndh_list" role="listbox" style="display:none">
+      <div role="option" class="_option_9f8e7d">Company careers page</div>
+      <div role="option" class="_option_9f8e7d">LinkedIn</div>
+    </div>
+  </div>
+</fieldset>
+
+<!-- 9. AN EEOC RADIO GROUP, Ashby-style: one input per option, ids of the form
+     `<uuid>__systemfield_eeoc_<name>-labeled-radio-<i>`, and each option's text on a label bound by
+     for=. The scanner reports ONE FIELD PER OPTION rather than one field per question: on Alchemy's
+     live form the gender, race and veteran groups produced 14 fields for 3 questions, so more than
+     half of that inventory was a single question repeated. It stayed invisible because the option
+     text is read correctly on every row and draft_form_spec.py's matchers happen to hit it. -->
+<fieldset id="eeocRadioGroup" class="_fieldEntry_ee0c01">
+  <!-- NO <legend>, deliberately. Read live off Alchemy on 2026-10-08: the question sits in a
+       `div._heading_<hash>` as a DIRECT CHILD of the field entry, beside the option labels, and the
+       fieldset Ashby uses carries no legend at all. A legend here would make the fixture easier than
+       the real page and the scanner would end up tuned to the fixture. -->
+  <div class="_heading_ee0c01">Veteran Status</div>
+  <label for="eeoc_vet_0"><input type="radio" name="veteran_status" id="eeoc_vet_0"
+      value="protected"> I identify as one or more of the classifications of protected veteran listed above</label>
+  <label for="eeoc_vet_1"><input type="radio" name="veteran_status" id="eeoc_vet_1"
+      value="not_protected"> I am not a protected veteran</label>
+  <label for="eeoc_vet_2"><input type="radio" name="veteran_status" id="eeoc_vet_2"
+      value="decline"> I decline to self-identify for protected veteran status</label>
+</fieldset>
+
+<!-- 13. A REAL <select>. The saved corpus has 65 of them and the fixture had NONE - the fingerprint
+     could name `native_select` and no test ever rendered one, which is why the multi-select recipe is
+     still `null`. The single one is what the filler drives; the `multiple` one is the shape the
+     project has no driver for at all. -->
+<fieldset id="nativeSelect">
+  <legend>nativeSelect — a real single select, and a real multi select</legend>
+  <div>
+    <label for="ns_country">Country</label>
+    <select id="ns_country" name="country">
+      <option value="">Select...</option>
+      <option>United States</option>
+      <option>Canada</option>
+    </select>
+  </div>
+  <div>
+    <label for="ns_offices">Which offices would you work from?</label>
+    <select id="ns_offices" name="offices" multiple>
+      <option>Seattle</option>
+      <option>San Francisco</option>
+      <option>New York</option>
+    </select>
+  </div>
+</fieldset>
+
+<!-- 14. THE SINGLE-LINE TYPES. `number` alone is 70 saved fields ("Start date year*"), `url` is 197
+     ("LinkedIn Profile"), and the bare `<input>` with no type attribute is 261 more - a tenant that
+     never set one. classifyWidget folds them all into `text_input`, and that claim was only ever
+     tested with the string "text". -->
+<fieldset id="inputTypes">
+  <legend>inputTypes — number, url, search, tel, email and a bare input</legend>
+  <div>
+    <label for="it_number">Start date year</label>
+    <input type="number" id="it_number" name="start_year">
+  </div>
+  <div>
+    <label for="it_url">LinkedIn Profile</label>
+    <input type="url" id="it_url" name="linkedin_url">
+  </div>
+  <div>
+    <label for="it_search">Keywords</label>
+    <input type="search" id="it_search" name="keywords">
+  </div>
+  <div>
+    <label for="it_tel">Phone</label>
+    <input type="tel" id="it_tel" name="phone_tel">
+  </div>
+  <div>
+    <label for="it_email">Email</label>
+    <input type="email" id="it_email" name="email_address">
+  </div>
+  <div>
+    <label for="it_bare">Phone</label>
+    <input id="it_bare" name="phone_bare">
+  </div>
+</fieldset>
+
+<!-- 15. A TEXTAREA, 665 saved fields, and the fixture had none. Every long answer this project has
+     ever written - "Why are you interested in joining ...", "Other Links", the OPT paragraph - went
+     into one, and no test rendered one. -->
+<fieldset id="longText">
+  <legend>longText — the textarea every long answer lands in</legend>
+  <div>
+    <label for="lt_summary">Anything else we should know?</label>
+    <textarea id="lt_summary" name="summary" rows="4"></textarea>
+  </div>
+  <!-- 25 saved textareas carry `type="text"`, which is not a legal attribute on a textarea and is
+       what a tenant writes anyway. It must not change the mechanism: this is still a textarea. -->
+  <div>
+    <label for="lt_typed">What are you looking for in your next role?</label>
+    <textarea type="text" id="lt_typed" name="looking_for" rows="4"></textarea>
+  </div>
+</fieldset>
+
+<!-- 16. THE FILE INPUT, 1,600 saved fields - the most common control in the corpus after text and
+     radio, and absent from the fixture. Two shapes matter and they behave differently: one carries a
+     label and one does not, which is the Chime bug of 2026-10-08 where an unlabelled resume input
+     produced a spec with no file and the submit came back "Resume/CV is required." -->
+<fieldset id="fileUpload">
+  <legend>fileUpload — a labelled resume input and an unlabelled one</legend>
+  <div>
+    <label for="fu_resume">Resume</label>
+    <input type="file" id="fu_resume" name="resume">
+  </div>
+  <!-- The unlabelled one needs a wrapper with no label AND no legend anywhere above it: on a real
+       tenant that is what it is, and a fieldset legend here would hand the scanner a question the
+       live page does not have. -->
+  <div class="_fieldEntry_fu0">
+    <input type="file" id="fu_bare" name="resume_upload">
+  </div>
+</fieldset>
+
+<!-- 17. role=combobox ON SOMETHING THAT IS NOT AN INPUT. Both appear in the corpus (a span and a
+     button), and both reach the scanner because it collects `[role=combobox]` by attribute, not by
+     tag. Nothing else about them is special - which is the point: the listing must not depend on the
+     element being an <input>. -->
+<fieldset id="roleComboboxElements">
+  <legend>roleComboboxElements — role=combobox on a span and on a button</legend>
+  <div>
+    <label id="rce_country_label">Country</label>
+    <!-- THE CONTROL SITS IN ITS OWN TIGHT CONTAINER, and that is what a span-combobox needs to be readable.
+         With the label and the listbox as siblings, every read of this field returned the container's whole
+         text - "Country United States United States Canada" - so pick_option reported a read-back that
+         disagreed with a value that had gone in correctly. A real form's combobox is its own element; this
+         makes the fixture match that rather than asking the tool to subtract a label it was never told about. -->
+    <div class="_tight_rce">
+      <span id="rce_country" role="combobox" aria-controls="rce_country_list" aria-expanded="false"
+            tabindex="0">United States</span>
+    </div>
+    <div id="rce_country_list" role="listbox" style="display:none">
+      <div role="option">United States</div>
+      <div role="option">Canada</div>
+    </div>
+  </div>
+  <div>
+    <label id="rce_loc_label">Location</label>
+    <button type="button" id="rce_loc" role="combobox" aria-controls="rce_loc_list"
+            aria-expanded="false">Choose your country</button>
+    <div id="rce_loc_list" role="listbox" style="display:none">
+      <div role="option">Seattle</div>
+      <div role="option">New York</div>
+    </div>
+  </div>
+</fieldset>
+
+<!-- 18. THE NEWER REACT-SELECT BUILD. Stripe and Affirm render `select-shell remix-css-*` where Chime,
+     Lyft and Pinterest render `select__control ... css-*`. The scanner already looks for both class
+     prefixes - that was added for Roblox - but no fixture rendered this one, so nothing proved it.
+     `react-select-<id>-live-region` is the other marker the reference names. -->
+<fieldset id="selectShellRemix">
+  <legend>selectShellRemix — the remix-css react-select build</legend>
+  <div class="select__container">
+    <label id="ssh_label">School*</label>
+    <div class="select-shell remix-css-b62m3t-container">
+      <span id="react-select-ssh-live-region" class="select__live-region"></span>
+      <div class="remix-css-b62m3t-control" role="combobox" aria-controls="ssh_listbox" aria-expanded="false">
+        <input id="ssh_input" role="combobox" aria-controls="ssh_listbox" aria-autocomplete="list">
+      </div>
+    </div>
+    <div id="ssh_listbox" role="listbox" style="display:none">
+      <div role="option">Lakeside State University - Fairview</div>
+      <div role="option">Fairview College</div>
+    </div>
+  </div>
+</fieldset>
+
+<!-- 19. `data-field-path` IS THE ANCHOR WHEN THE FIELD ENTRY IS NOT A FIELDSET. `chooseRadio` resolves
+     its scope with `ancestor::*[self::fieldset or @data-field-path][1]`, and only the fieldset half was
+     ever exercised. The radios therefore live OUTSIDE the fieldset below, deliberately: with a fieldset
+     wrapping them the filler would take that branch instead and this one would stay untested. -->
+<fieldset id="dataFieldPathRadios">
+  <legend>dataFieldPathRadios — the group lives in the div below, not in this fieldset</legend>
+</fieldset>
+<div data-field-path="9f3a1b2c-0000-4444-8888-abcdefabcdef" class="dfp-entry">
+  <div class="dfp-title">Do you now or in the future require sponsorship?</div>
+  <label for="dfp_yes"><input type="radio" name="dfp_sponsor" id="dfp_yes" value="yes"> Yes</label>
+  <label for="dfp_no"><input type="radio" name="dfp_sponsor" id="dfp_no" value="no"> No</label>
+</div>
+
+<!-- 20. A DATE PICKER WITH NO ID AND A DANGLING LABEL. Ashby's start-date question, quoted verbatim in
+     the reference: `label for="4250aa2c-…"` names an id no element carries, the input has no id and no
+     name, and the only anchor is the class inside its container. It also expects a DATE, so the
+     standing "two weeks notice" answer has to be expressed as one. -->
+<fieldset id="datepickerField">
+  <legend>datepickerField — the entry lives in the div BELOW, not in this fieldset: a legend here would
+    hand the scanner a question the live page does not have</legend>
+</fieldset>
+<div data-field-path="4250aa2c-1d0e-408e-a265-b2dd5c090dd0" class="dfp-entry">
+  <label for="4250aa2c-1d0e-408e-a265-b2dd5c090dd0">When can you start a new role?</label>
+  <div class="react-datepicker-wrapper">
+    <div class="react-datepicker__input-container">
+      <input type="text" placeholder="Pick date..." class="_input_date ashby-application-form-input-date" required>
+    </div>
+  </div>
+</div>
+
+<!-- 21. THE LABEL IS A SIBLING OF ITS CONTROL, NOT ITS ANCESTOR. Samsara's AI-policy acknowledgement,
+     where a search that matched the question text returned the LABEL element and reported
+     `hasSelect: false, inputs: []` - because a react-select's label does not CONTAIN its control. They
+     sit as siblings inside a shared field wrapper, and the scanner only finds it by walking outward
+     from the label to that wrapper. Nothing here is exotic; it is the ordinary shape of every
+     react-select, and no fixture had rendered it. -->
+<fieldset id="siblingLabelControl">
+  <legend>siblingLabelControl — the label and the control are siblings in a shared wrapper</legend>
+  <div class="field-wrapper">
+    <label id="slc_q">AI Policy for Interviewers*</label>
+    <div class="select__control" id="slc_control" role="combobox" aria-controls="slc_list" aria-expanded="false">
+      <span class="select__single-value"></span>
+      <input id="slc_input" role="combobox" aria-controls="slc_list" aria-autocomplete="list">
+    </div>
+    <div id="slc_list" role="listbox" style="display:none">
+      <div role="option">Acknowledge/Confirm</div>
+      <div role="option">Decline</div>
+    </div>
+  </div>
+</fieldset>
+
+<!-- 22. multiCheckboxGroup — A REQUIRED MULTI-OPTION CHECKBOX GROUP. OKX, driving-widgets-cases-3: "a required
+     CHECKBOX GROUP is invisible to a scan that filters checkboxes out". Nothing else in this file is a group of
+     checkboxes sharing one question - the other two are a PAIR behind a button and a hidden companion - so the
+     scanner's group question had only ever been exercised on RADIOS. The shape matters because the Agave/Tenex
+     over-check bug was exactly this one: a filler that ticks every box in the group makes a false claim about
+     the candidate's skills, which `do_not_claim` turns into a correctness failure rather than a style one. -->
+<fieldset id="multiCheckboxGroup">
+  <legend>Which languages do you have production experience with?*</legend>
+  <div class="_option_row"><input type="checkbox" id="mcg_go" name="languages" value="Go"> <label for="mcg_go">Go</label></div>
+  <div class="_option_row"><input type="checkbox" id="mcg_java" name="languages" value="Java"> <label for="mcg_java">Java</label></div>
+  <div class="_option_row"><input type="checkbox" id="mcg_rust" name="languages" value="Rust"> <label for="mcg_rust">Rust</label></div>
+</fieldset>
+
+<!-- 23. creatableCombobox — A REACT-SELECT THAT ACCEPTS FREE TEXT AS A VALUE. Brex, driving-widgets-cases-4: the
+     pronouns field was submitted reading `HeHeHeHeHe`, because the filler's approach to every react-select was
+     "open it, type a filter, read the options, click the match" - correct for a pick-only select, and wrong for a
+     CREATABLE one, where the filter string does not narrow a list but BECOMES the value. Five open attempts wrote
+     `He` five times, and nothing in the pipeline caught it; a human read the line and saw nonsense. The rule the
+     case states is "type once, or not at all", and no fixture had rendered a control where typing has a side
+     effect, so nothing enforced it. -->
+<fieldset id="creatableCombobox">
+  <legend>creatableCombobox — whatever is typed here becomes the value</legend>
+  <div class="select__control" id="ccb_control" role="combobox" aria-controls="ccb_listbox">
+    <span class="select__single-value"></span>
+    <input id="ccb_input" role="combobox" aria-autocomplete="list" aria-controls="ccb_listbox">
+  </div>
+  <div id="ccb_listbox" class="select__menu" role="listbox" style="display:none">
+    <div class="select__option" role="option">he/him/his</div>
+    <div class="select__option" role="option">she/her/hers</div>
+    <div class="select__option" role="option">they/them/theirs</div>
+  </div>
+</fieldset>
+
+<!-- 24. idWithEmptyName — AN ID AND AN EMPTY name ATTRIBUTE. DoorDash, driving-widgets-cases-3: the Location
+     (City) control carries `id="candidate-location"` and `name=""`. Addressing it as `[name="candidate-location"]`
+     matched NOTHING, the fallback click landed at the top of the form, and the option list that then appeared was
+     the PHONE field's country selector - 244 international dialling codes. So the screen said "this location
+     widget returns countries", and the widget was misdiagnosed twice before anyone read the attribute.
+     The scanner prefers the id, which is what makes such a control addressable at all; nothing rendered the
+     shape, so the precedence was never asserted. -->
+<fieldset id="idWithEmptyName">
+  <legend>idWithEmptyName — id present, name attribute present and empty</legend>
+  <div class="_fieldEntry_ie0">
+    <label for="ien_location">Location (City)*</label>
+    <input type="text" id="ien_location" name="">
+  </div>
+</fieldset>
+
+<!-- 26. coveredField — A CONTROL WITH A CONSENT BANNER OVER IT. driving-widgets-cases-2: "a click timeout with a
+     healthy bounding box means an overlay", and the diagnostic it prescribes FIRST is
+     `document.elementFromPoint` at the control's centre, before any theory about the form is invented. The
+     Workday helper learned it; the generic filler swallowed the failure, so a covered field read as "this widget
+     refuses input" and sent the reader hunting for a widget bug while the page was simply covered. -->
+<fieldset id="coveredField">
+  <legend>coveredField — a control with a banner over it</legend>
+  <div class="_fieldEntry_cvd" style="position:relative">
+    <label for="cvd_input">Covered question</label>
+    <input type="text" id="cvd_input">
+    <div id="cvd_banner" class="_consentBanner_cvd"
+         style="position:absolute;inset:0;background:rgba(0,0,0,.08)">We use cookies.</div>
+  </div>
+</fieldset>
+
+<!-- 27. emptyIdField — AN ELEMENT WHOSE id ATTRIBUTE IS PRESENT AND EMPTY. Oneleet, driving-widgets-tool-cases:
+     Ashby renders its "What city and country will you be working from?" input with neither an id nor a name, so the
+     drafter emitted `{ref: ""}`. `locator()` tried every prefix branch, found none, and fell through to `[id=""]` -
+     and before React had hydrated that form, the NAME input still carried an empty id attribute, so it matched.
+     The acknowledgement came back "We got your application, Springfield," with the candidate's CITY where his name
+     belongs. The tool now throws on an empty ref, and nothing in this file rendered the element that fallback
+     would have hit, so the throw was untestable. -->
+<fieldset id="emptyIdField">
+  <legend>emptyIdField — an id attribute that is present and empty</legend>
+  <div class="_fieldEntry_eif">
+    <label for="eif_name">Name</label>
+    <input type="text" id="" name="eif_name_field">
+  </div>
+</fieldset>
+
+<!-- 28. desyncedRadioGroup — THE WANTED OPTION ALREADY LOOKS CHECKED. Tetsuwan/Ashby, driving-widgets-tool-cases:
+     Ashby refused the submission with "Missing entry for required field: Are you legally authorized to work in the
+     United States?" while the DOM showed that radio `checked = true`, and every settled tool reported success - the
+     DOM was right and the framework's form state was empty. `set_radio.mjs` did nothing at all there, because its
+     press was guarded by `if (!hit.r.checked)`, which makes a desync PERMANENT: the tool agrees with the DOM, the
+     verifier agrees with the DOM, and the server keeps rejecting. The fix presses unconditionally and presses a
+     DIFFERENT option first when the wanted one looks checked, so two real change events reach the framework. -->
+<fieldset id="desyncedRadioGroup">
+  <legend>desyncedRadioGroup — the wanted option already looks checked</legend>
+  <label><input type="radio" name="dsg_auth" id="dsg_yes" value="Yes" checked> Yes</label>
+  <label><input type="radio" name="dsg_auth" id="dsg_no" value="No"> No</label>
+</fieldset>
+
+<!-- 29. digitInitialId — AN ID THAT STARTS WITH A DIGIT, WHICH IS NOT A VALID CSS ID SELECTOR. Solace/Ashby,
+     driving-widgets-tool-cases: `#2067782e-...` threw `SyntaxError: not a valid selector`. ATS field ids are UUIDs
+     and ROUGHLY HALF START WITH A DIGIT - the corpus's own example for the radio shape is `id:299f4d61-cec4-...` -
+     so a tool that builds `#${id}` breaks on half of a real form while working perfectly on the fixture, which had
+     no such id at all. Address these as `[id="..."]`, never as `#...`. -->
+<fieldset id="digitInitialId">
+  <legend>digitInitialId — an element id beginning with a digit</legend>
+  <div class="_fieldEntry_dii">
+    <label for="299f4d61-cec4-497b-8710-fc68dbcf36b4">Essay question</label>
+    <textarea id="299f4d61-cec4-497b-8710-fc68dbcf36b4" rows="3"></textarea>
+  </div>
+</fieldset>
+
+<script>
+  // Minimal behaviour so the shapes are real enough to drive: clicking a pair button flips the hidden
+  // checkbox the way Ashby's does, and the option lists open on demand rather than being present.
+  const box = document.getElementById('hp_box');
+  document.querySelectorAll('#hp_container button').forEach((b) => {
+    b.addEventListener('click', () => {
+      box.checked = b.dataset.option === 'yes';
+      b.setAttribute('aria-pressed', String(b.dataset.option === 'yes'));
+    });
+  });
+  document.querySelectorAll('input[name="Yes"],input[name="No"]').forEach((c) => {
+    c.addEventListener('change', () => {
+      const want = c.name;
+      document.querySelectorAll('input[name="Yes"],input[name="No"]').forEach((o) => { o.checked = o === c && o.checked; });
+      window.__nameOnlyAnswer = c.checked ? want : null;
+    });
+  });
+  const toggle = document.querySelector('._toggleButton_1a2b3c');
+  const officeList = document.getElementById('office_list');
+  const officeInput = document.getElementById('office_input');
+  const openOffice = () => { officeList.style.display = officeList.style.display === 'none' ? 'block' : 'none'; officeInput.setAttribute('aria-expanded', String(officeList.style.display === 'block')); };
+  if (toggle) toggle.addEventListener('click', openOffice);
+  if (officeInput) officeInput.addEventListener('click', openOffice);
+  officeList.querySelectorAll('[role=option]').forEach((o) => {
+    o.addEventListener('click', () => { officeInput.value = o.textContent; officeList.style.display = 'none'; });
+  });
+
+  const control = document.getElementById('school_control');
+  const menu = document.getElementById('school_listbox');
+  control.addEventListener('click', () => { menu.style.display = menu.style.display === 'none' ? 'block' : 'none'; });
+  menu.querySelectorAll('[role=option]').forEach((o) => {
+    o.addEventListener('click', () => {
+      document.querySelector('#school_control .select__single-value').textContent = o.textContent;
+      menu.style.display = 'none';
+    });
+  });
+  const trigger = document.getElementById('state_trigger');
+  const stateMenu = document.getElementById('state_menu');
+  trigger.addEventListener('click', () => {
+    stateMenu.style.display = stateMenu.style.display === 'none' ? 'block' : 'none';
+  });
+  stateMenu.querySelectorAll('[role=option]').forEach((o) => {
+    o.addEventListener('click', () => { trigger.textContent = o.textContent; stateMenu.style.display = 'none'; });
+  });
+
+  // `roleComboboxElements`: a plain span acting as a combobox. The corpus records `input_combobox/input` against
+  // this very fixture, so the contract says it must be drivable - and it was not, because the span had no click
+  // handler, so nothing could open its list.
+  const rceSpan = document.getElementById('rce_country');
+  const rceList = document.getElementById('rce_country_list');
+  rceSpan.addEventListener('click', () => {
+    const open = rceList.style.display !== 'none';
+    rceList.style.display = open ? 'none' : 'block';
+    rceSpan.setAttribute('aria-expanded', String(!open));
+  });
+  rceList.querySelectorAll('[role=option]').forEach((o) => {
+    o.addEventListener('click', () => {
+      rceSpan.textContent = o.textContent;
+      rceList.style.display = 'none';
+      rceSpan.setAttribute('aria-expanded', 'false');
+    });
+  });
+
+  // `desyncedRadioGroup`: count the presses, because the case is about a press that did NOT happen. A radio that
+  // already reads `checked = true` fires no change event when it is clicked, so a change-event counter would
+  // report zero for BOTH the broken and the fixed tool - the click itself is what has to be counted.
+  window.__dsgClicks = 0;
+  document.querySelectorAll('#desyncedRadioGroup input[type=radio]').forEach((r) => {
+    r.addEventListener('click', () => { window.__dsgClicks += 1; });
+  });
+
+  // 23. Creatable semantics, which is the WHOLE POINT of that fixture and the reason it is not just another
+  // react-select: typing does not filter a list here, it WRITES THE VALUE. That is what turned Brex's pronouns
+  // field into `HeHeHeHeHe` - five open attempts, five writes - and a filler that types on every attempt
+  // cannot tell this control from a pick-only one by looking at it. Clicking an option still wins, and clears
+  // the input, exactly as a real creatable does.
+  const ccbControl = document.getElementById('ccb_control');
+  const ccbMenu = document.getElementById('ccb_listbox');
+  const ccbInput = document.getElementById('ccb_input');
+  const ccbValue = () => ccbControl.querySelector('.select__single-value');
+  ccbControl.addEventListener('click', () => {
+    ccbMenu.style.display = ccbMenu.style.display === 'none' ? 'block' : 'none';
+  });
+  ccbInput.addEventListener('input', () => { ccbValue().textContent = ccbInput.value; });
+  ccbMenu.querySelectorAll('[role=option]').forEach((o) => {
+    o.addEventListener('click', () => {
+      ccbValue().textContent = o.textContent;
+      ccbInput.value = '';
+      ccbMenu.style.display = 'none';
+    });
+  });
+</script>
+<!-- CONDITIONAL REVEAL. The second control does not exist until the first is answered, which is what Greenhouse's
+     EEO cascade does and what made `race` invisible to a scan taken before the fill (Twitch, 2026-10-10). Any
+     verification that only reads the page BEFORE filling cannot see `cr_revealed`, so the filler reports it as a
+     control the spec never mentioned and the round is re-scanned rather than declared clean. -->
+<fieldset id="conditionalReveal">
+  <legend>Conditional reveal</legend>
+  <div class="question">
+    <label for="cr_trigger">First Name</label>
+    <input id="cr_trigger" name="cr_trigger" type="text">
+  </div>
+  <div class="question" id="cr_slot" hidden>
+    <label for="cr_revealed">Please identify your race</label>
+    <select id="cr_revealed" name="cr_revealed">
+      <option value="">Select...</option>
+      <option value="Asian">Asian</option>
+      <option value="White">White</option>
+    </select>
+  </div>
+</fieldset>
+<script>
+  // The reveal fires on the ANSWER, exactly as the real cascade does - answering the question is what creates the next
+  // one. The trigger is a text input rather than a select so that the loop test depends on the filler alone: a labelled
+  // `First Name` is a field the drafter always answers, and nothing about EEO rules or option text is in the way.
+  document.getElementById('cr_trigger').addEventListener('input', (e) => {
+    document.getElementById('cr_slot').hidden = e.target.value.trim() === '';
+  });
+</script>
+<!-- SIBLING VALUE LEAK. TWO react-selects inside ONE question wrapper, the first answered and the second empty -
+     Greenhouse's EEO block, which is where `race` read `No` from `hispanic_ethnicity` on the Twitch form
+     (2026-10-10). A scan that reads the value out of the WRAPPER reports the second control as answered, and
+     `draft_form_spec.py` skips answered fields, so the question is never filled and nothing reports an error. -->
+<fieldset id="siblingValueLeak">
+  <legend>siblingValueLeak — two react-selects in one question wrapper</legend>
+  <div class="question">
+    <div class="select__control" id="svl_control_a" role="combobox" aria-controls="svl_list_a" aria-expanded="false">
+      <span class="select__single-value">No</span>
+      <input id="svl_first" role="combobox" aria-controls="svl_list_a" aria-autocomplete="list">
+    </div>
+    <div class="select__control" id="svl_control_b" role="combobox" aria-controls="svl_list_b" aria-expanded="false">
+      <input id="svl_second" role="combobox" aria-controls="svl_list_b" aria-autocomplete="list">
+    </div>
+    <div id="svl_list_a" role="listbox" style="display:none">
+      <div role="option">Yes</div><div role="option">No</div>
+    </div>
+    <div id="svl_list_b" role="listbox" style="display:none">
+      <div role="option">Asian</div><div role="option">White</div>
+    </div>
+  </div>
+</fieldset>
+</body>
+</html>

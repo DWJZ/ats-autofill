@@ -1,0 +1,33 @@
+{
+  "_note": "EXAMPLE FILE. Per-tenant application policies, kept as data rather than prose. Read it before tailoring anything at one of these tenants: a policy says what one employer does, which is why it cannot become a test and belongs here.",
+  "_fields": {
+    "tenant": "the employer as the tracker spells it",
+    "policy": "skip | no_sponsorship | form_only_bar",
+    "evidence": "posting | form | board_wide | rejection_mail | confirmation_page - WHERE the policy was discovered, which is often the point, because a bar that only appears on the form cannot be found by reading the posting",
+    "learned": "the date the policy was established"
+  },
+  "tenants": [
+    {
+      "tenant": "Acme",
+      "policy": "no_sponsorship",
+      "evidence": "posting",
+      "learned": "2025-01-01",
+      "detail": "Example entry: the posting says outright that it cannot sponsor, so every requisition on this board is skipped before tailoring. Record the sentence you read, not a summary of it - the next reader has to be able to check the reading, and a bar can be narrower than the sentence that carries it (one that refuses new sponsorship may still transfer an existing one)."
+    },
+    {
+      "tenant": "Northwind",
+      "policy": "form_only_bar",
+      "evidence": "form",
+      "learned": "2025-01-01",
+      "detail": "Example entry: nothing in the posting mentions it, and the form asks a question that makes the application pointless. This is the expensive kind, because it is only discovered after a resume has been tailored and a form opened - which is exactly why it is recorded as a tenant fact rather than as a note on one application."
+    },
+    {
+      "tenant": "Contoso",
+      "policy": "skip",
+      "evidence": "rejection_mail",
+      "learned": "2025-01-01",
+      "detail": "Example entry: the posting was silent and the rejection said it. A rejection is evidence about the TENANT, not only about the application it answered, so it changes what future rounds do."
+    }
+  ],
+  "_see_also": "data/form_specs/tenant_caps.json holds the application caps, and is the file the cap check reads before a form is opened - the counting itself is in src/screening/tenant_caps.py, which takes the rows, the caps and a date as arguments. Caps live there and nowhere else: two sources for one number is how the number drifts. This file holds the policies that are decisions - skip, no_sponsorship, form_only_bar."
+}

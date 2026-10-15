@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "_why": [
+    "This file is where an inferred answer goes so that it is answered ONCE instead of once per application.",
+    "draft_form_spec.py loads it and tries these rules BEFORE its built-in table, because a rule here was written by",
+    "hand for a wording that recurred, while the built-in table is a heuristic over general English.",
+    "EVERY RULE MUST CARRY A NOTE NAMING WHERE ITS ANSWER COMES FROM. A rule that cites nothing cannot be told apart",
+    "from a guess by the next reader, and because it matches, the question will never be listed in needs_review again -",
+    "so nobody will look at it a second time either.",
+    "A rule that only restates a general wording belongs in draft_form_spec.py's matchers instead. Put a rule here when",
+    "the wording is tenant-specific or boilerplate-specific, like a form that asks about the company by name.",
+    "`kind` is optional and narrows the rule to one control type (text | select | check); leaving it out lets the rule",
+    "answer the question on any control."
+  ],
+  "rules": [
+    {
+      "questionRe": "have you (previously |ever )?(been )?employed (by|at|with)|have you worked (for|at)",
+      "kind": "select",
+      "answer": "No",
+      "note": "EXAMPLE RULE - canonical: no employer in data/application_profile.json is this tenant. Before trusting it, check the tracker: 'have you applied to us before' is a different question with a different answer. Replace this rule's note with the source you actually relied on."
+    },
+    {
+      "questionRe": "country/region do you have citizenship|which country.*citizenship|citizenship.*country",
+      "kind": "select",
+      "answer": "Example Country",
+      "note": "EXAMPLE RULE - canonical: candidate.citizenship in data/candidate_profile.json. The value must be the form's OWN option text for that country, not a free-text spelling, because the filler selects an option by its text. Citizenship is not immigration status and neither is work authorisation; never answer one from the other."
+    },
+    {
+      "questionRe": "notice period|how much notice|when (can|could) you start",
+      "kind": "text",
+      "answer": "Example: four weeks from the date of an offer",
+      "note": "EXAMPLE RULE - user rule: the availability answer you decided on, recorded here with its date and your own words. A notice period is a statement about your current employer's contract, so it must never be guessed from a job description."
+    }
+  ]
+}
