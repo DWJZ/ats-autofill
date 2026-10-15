@@ -1,0 +1,81 @@
+# The contract suite, on a machine nobody has been using.
+#
+# WHAT THIS RUNS, AND WHAT IT DELIBERATELY DOES NOT. A fresh clone has no `data/`, so the configuration half
+# of `npm test` has nothing to read - which is the design, not a gap: that half asserts things about a
+# configured toolkit and every fact it needs belongs to a person. `npm run test:contract` fabricates a
+# configuration in a temporary directory that `ATS_DATA_DIR` points at, and asserts the whole of the CODE:
+# both suites, zero skips, and two guards it carries - that the run wrote nothing into the checkout, and
+# that it left no directory behind in the temp directory.
+#
+# WHY macOS AND NOTHING ELSE, YET. The Chrome launcher's candidate paths are the macOS application bundles,
+# and the project-local LibreOffice installer drives `hdiutil`. The form tools themselves are portable;
+# everything arranged around them is not. A Linux job would need `CHROME_PATH` pointing at its own browser
+# and a different answer for LibreOffice - worth doing, and not something to pretend works by writing a job
+# that fails.
+#
+# THE FLAKINESS THIS IS MEANT TO SETTLE. On the machine this was built on, the node half intermittently
+# blocks for twelve to fifteen minutes on a different test each run, on a tree that predates every recent
+# change - the signature of a machine under memory pressure rather than of a defect in the suite. A runner
+# that has not been up for two days and is not swapping is the control for that experiment: green here and
+# intermittent there would name the cause.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    runs-on: macos-latest
+    # Generous on purpose. The node half takes about four minutes when the machine is quiet, and the first
+    # run on a cold cache also fetches LibreOffice - so this is a budget for "slow", not for "hung".
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # `>=22` in package.json is not decoration: the test command hands `node --test` a quoted glob,
+          # and glob support in the test runner arrived in 21. On 18 and 20 the argument is read as a
+          # literal path, no file has that name, and the widget tests do not run at all.
+          node-version: '22'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        # A project-local virtualenv, because the suites and `scripts/setup-examples.sh` both expect
+        # `.venv/bin/python3` rather than a system interpreter.
+        run: |
+          python3 -m venv .venv
+          .venv/bin/python3 -m pip install --upgrade pip
+          .venv/bin/python3 -m pip install -r requirements.txt
+
+      - name: Cache the project-local LibreOffice
+        # The resume pipeline renders DOCX to PDF and fetches its own LibreOffice when the machine has none
+        # (about 300 MB, into `.cache/`). Correct, and wasteful to repeat: the cache key carries the
+        # installer's own hash, so a version bump invalidates it and nothing else does.
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: libreoffice-${{ runner.os }}-${{ hashFiles('src/tools/install_libreoffice.sh') }}
+
+      - name: Install Node dependencies
+        # `npm ci` rather than `npm install`: it fails when the lockfile and package.json disagree, which is
+        # the property that makes a CI run reproducible.
+        run: npm ci
+
+      - name: Run the contract suite
+        run: npm run test:contract
