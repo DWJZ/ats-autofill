@@ -31,6 +31,10 @@ import { chromium } from "playwright-core";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+// THE VALUE RULE IS IMPORTED, NOT RE-DERIVED. The audit (`audit_form_fields.mjs`) reads a control's displayed
+// value with it; so does this gate. It used to have a rule of its own, and the two disagreed in the direction that
+// reaches an employer - see the block that reads `byId` below.
+import { CONTROL_VALUE_SOURCE } from "./control_value.mjs";
 // The standing table is configuration, located through the one definition of `ATS_DATA_DIR` (`src/paths.mjs`)
 // rather than by a path relative to the working directory.
 import { DATA_DIR } from "../paths.mjs";
@@ -84,32 +88,45 @@ if (!page) {
   process.exit(2);
 }
 
-const snapshot = await page.evaluate(() => {
+const snapshot = await page.evaluate((controlValueSource) => {
   // A FILE INPUT'S `.value` IS NOT THE FILE'S NAME. The browser never exposes a selected file through `input.value` -
   // it is "" or a `C:\fakepath\...` string - so an expectation of the form {"kind":"valueMatch","re":"Resume\\.pdf"}
   // CAN NEVER PASS, whatever is attached. This was asserted twice by mistake on 2026-10-05 before anyone noticed that
   // the failing expectation was unsatisfiable rather than the upload broken. Check an attachment by the FILENAME
   // VISIBLE ON THE PAGE (`ats-greenhouse.md` says the same for a silent upload), never through `values`.
   const values = [...document.querySelectorAll("input,textarea")].map((e) => e.value || "");
+  // ══ WHAT EACH CONTROL DISPLAYS, BY THE ONE RULE THAT READS IT ═══════════════════════════════════════════════
+  //
+  // WHY THIS READS THE WAY IT DOES. This block used to walk up to five ancestors of every element that had an id,
+  // looking for `[class*=single-value]`, and take the first value it found. That is "a container may answer for a
+  // control inside it", which is exactly what a composite widget breaks (the rule and its cases are in
+  // `control_value.mjs`; greenhouse's board, posting 8279799, 2026-10-14, is where they were observed):
+  //
+  //     <fieldset class="phone-input">                    <- ONE fieldset, TWO controls
+  //       <div class="phone-input__country"> … <div class="select__single-value">+1</div> …   <- Country*, answered
+  //       <div class="phone-input__phone"> … <input id="phone" type="tel" required> …          <- Phone*, EMPTY
+  //
+  // An empty required phone sits beside an answered country, and a read that climbs out of the phone finds the
+  // COUNTRY's value node (`+1`) and reports the phone as answered - so `noEmptyRequired` passes a blank field the
+  // employer required and the submission goes out without it. Reading each control's OWN display container is the
+  // fix; the suspicion is not turned up, the wrong element is simply not read any more.
+  //
+  // The same walk invented ids that are not controls at all: a question's `label`, its `fieldset` and its wrapper
+  // `div`s each acquired a `byId` entry holding a NEIGHBOUR's value, because the value was looked for in an
+  // ancestor of an element that has no value of its own. `byId` is now built from controls and from nothing else.
+  //
+  // And it still reads a react-select, which is why it cannot simply take `input.value`: a committed option renders
+  // in a `[class*=single-value]` node while the input holds the typed query or nothing at all. On 2026-10-07 that
+  // made a completely filled Verse form read as "id candidate-location is empty" and the gate refused it; that
+  // failure, the composite above and the fragment `+1` (the country's option is `Canada +1`, and the audit resolves
+  // it out of the widget's own mounted country list) are ONE rule, and it is the audit's.
+  const rule = eval(controlValueSource);
   const byId = {};
-  for (const e of document.querySelectorAll("input,textarea")) if (e.id) byId[e.id] = e.value || "";
-  // A REACT-SELECT KEEPS ITS COMMITTED VALUE IN A DISPLAY NODE, NOT IN input.value (fixed 2026-10-07). Greenhouse's
-  // Country renders "United States +1" and Location (City) renders "Springfield, Illinois, United States" in a
-  // `[class*=single-value]` node, while the input itself holds the typed query or the dial-code "+1" - so
-  // `noEmptyRequired` read a completely filled Verse form as "id candidate-location is empty" and the gate refused it.
-  // A committed option is the ONLY thing that renders a single-value node (the empty state renders a placeholder under
-  // a different class), so accepting it here cannot hide a genuinely unanswered select.
-  for (const el of document.querySelectorAll("[id]")) {
-    let w = el;
-    for (let i = 0; i < 5 && w; i++) {
-      const node = w.querySelector?.("[class*=single-value], [class*=singleValue], [class*=multi-value]");
-      const text = node ? (node.innerText || "").replace(/\s+/g, " ").trim() : "";
-      if (text) {
-        if (!String(byId[el.id] || "").trim()) byId[el.id] = text;
-        break;
-      }
-      w = w.parentElement;
-    }
+  // `select` belongs here because the audit scans it and reads a native select's own value; without it such an id
+  // read "not present", which refuses a field that is filled.
+  for (const el of document.querySelectorAll("input,textarea,select")) {
+    if (!el.id) continue;
+    byId[el.id] = rule.read(el).displayed;
   }
   // Yes/No pairs: Ashby draws these either as ONE checkbox whose question sits in an ancestor, or as a RADIO group with
   // exactly two options. Reading only checkboxes made this gate report false failures on the Virta form, where the
@@ -374,7 +391,7 @@ const snapshot = await page.evaluate(() => {
   const droppedPairs = pairs.length - pairsKept.length;
 
   return { values, byId, pairs: pairsKept, droppedPairs, radioGroupsChecked: Object.values(radioGroups).filter(Boolean).length, essays, displays };
-});
+}, CONTROL_VALUE_SOURCE);
 
 const failures = [];
 const warnings = [];

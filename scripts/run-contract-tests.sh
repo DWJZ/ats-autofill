@@ -22,9 +22,19 @@
 # run had to clean up, it needed a guard refusing to overwrite a real user's own copies, and it is gone with
 # the files: the knowledge they held is asserted by tests, and a test needs no directory in the tree.
 #
+# AND THE TEMPORARY DIRECTORY IS CHECKED TOO, BECAUSE THE TREE CHECK CANNOT SEE IT. The guard at the end of
+# this script has always compared the checkout before and after the run, and it is blind by construction to
+# where this suite was actually leaking: a test that calls `mkdtemp` and never removes what it made leaves its
+# directory in the machine's temporary directory, which the checkout never sees and no run ever mentions. Five
+# families of them - the spec, the plan and the upload of a fill round trip, the profile the pipeline tests
+# write, and the empty data directory the screening patterns are loaded against, plus Playwright's own working
+# directories - had left more than five hundred directories there, every one of them produced by a run that
+# reported green. The same guard shape now counts those families before and after the suites and FAILS, naming
+# the count and the prefix, when a run that reported no failures left a new one behind.
+#
 # USAGE
 #   bash scripts/run-contract-tests.sh                 # the whole suite against the fixture set
-#   bash scripts/run-contract-tests.sh --self-test     # exercise the install step, run no tests
+#   bash scripts/run-contract-tests.sh --self-test     # exercise the install step and the temp-dir guard, run no tests
 #   bash scripts/run-contract-tests.sh --keep-fixtures # leave the temporary fixture tree in place for inspection
 #
 # EXIT STATUS: the suite's own status (0 only when both suites pass with zero failures and the fixture
@@ -44,10 +54,82 @@ for arg in "$@"; do
   case "$arg" in
     --self-test) SELF_TEST=1 ;;
     --keep-fixtures) KEEP_FIXTURES=1 ;;
-    -h|--help) sed -n '2,33p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    -h|--help) sed -n '2,/^set -uo pipefail$/p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) printf 'unknown option: %s\n' "$arg" >&2; exit 2 ;;
   esac
 done
+
+# --------------------------------------------------------------------------- the temporary-directory guard
+# THE PREFIXES THIS SUITE HAS BEEN MEASURED TO CREATE IN THE MACHINE'S TEMPORARY DIRECTORY, written down once:
+# the spec a fill round trip writes (the biggest source by far - 27 call sites), the plans and the upload two
+# other round-trip tests write, the chromium profile a round trip runs in, the fake browser cache one fixture
+# test builds, the inventory-and-spec directories the form-spec drafter tests write, the candidate profile the
+# pipeline tests load the assistant against, the manifest path spelled from outside the checkout, the empty
+# data directory the screening patterns are loaded against, and Playwright's own working directories, one per
+# connection and one per launch. A family that IS removed properly today is on the list anyway: that is what
+# makes a regression in a `finally` or an `addCleanup` visible, and it costs nothing while the removal holds.
+#
+# EVERYTHING ELSE IN THERE IS DELIBERATELY IGNORED, and the guard looks for NEW NAMES rather than for a change
+# in the directory, because that directory belongs to every program on the machine - another checkout, another
+# browser, the mail client's cache. A guard that fails on somebody else's scratch is a guard the reader learns
+# to ignore, and a name outside this list cannot be this suite's business.
+TEMP_PREFIXES=(
+  jh-spec- jh-plan- jh-file- jh-fillprofile- jh-browsers- draft-spec-
+  assistant-profile- manifest-outside- screen-patterns-
+  playwright-artifacts- playwright_chromiumdev_profile-
+)
+TEMP_ROOT="${TMPDIR:-/tmp}"
+TEMP_ROOT="${TEMP_ROOT%/}"
+
+# Every entry in the temporary directory whose name starts with one of the prefixes above, sorted. The same
+# snapshot-before/compare-after shape as the tree guard further down, over a directory that guard cannot see.
+temp_snapshot() {
+  local prefix
+  for prefix in "${TEMP_PREFIXES[@]}"; do
+    find "$TEMP_ROOT" -maxdepth 1 -name "${prefix}*" -print 2>/dev/null
+  done | sort
+}
+
+# The names in the second snapshot that the first one did not hold. Empty means the run left nothing behind.
+temp_new_names() {
+  comm -13 <(printf '%s\n' "$1" | grep -v '^$') <(printf '%s\n' "$2" | grep -v '^$')
+}
+
+# One line per family that gained a directory: the count, the prefix, and the names, so a failure says what
+# leaked and how much of it rather than "something changed".
+temp_leak_report() {
+  local prefix names count
+  for prefix in "${TEMP_PREFIXES[@]}"; do
+    names="$(printf '%s\n' "$1" | grep "/${prefix}" || true)"
+    count="$(printf '%s' "$names" | grep -c . || true)"
+    if (( count > 0 )); then
+      printf '          %2d x %-32s %s\n' "$count" "$prefix" "$(printf '%s' "$names" | sed 's|.*/||' | tr '\n' ' ')"
+    fi
+  done
+}
+
+# Prove the guard can see a leak, and does not invent one - the reason the fixture installer has a self-test
+# too. A planted directory is the only way to know: on a clean machine a guard that never fires and a guard
+# that is right look exactly the same.
+temp_guard_self_test() {
+  local before after planted
+  before="$(temp_snapshot)"
+  planted="$(mktemp -d "${TEMP_ROOT}/jh-spec-selftest.XXXXXX")" || return 1
+  after="$(temp_snapshot)"
+  if [[ -z "$(temp_new_names "$before" "$after")" ]]; then
+    printf '  FAIL  a directory planted in %s was not noticed at all\n' "$TEMP_ROOT"
+    rmdir "$planted"
+    return 1
+  fi
+  printf '  ok    a planted jh-spec- directory in %s is reported as a leak\n' "$TEMP_ROOT"
+  temp_leak_report "$(temp_new_names "$before" "$after")" | sed 's/^/    /'
+  rmdir "$planted"
+  if [[ -n "$(temp_new_names "$before" "$(temp_snapshot)")" ]]; then
+    printf '  FAIL  a leak is still reported after the planted directory is gone\n'
+    return 1
+  fi
+  printf '  ok    and nothing is reported once it is gone\n'
+}
 
 if (( SELF_TEST == 1 )); then
   echo "== self-test: the install step, and the fact that it touches nothing in the tree =="
@@ -58,6 +140,9 @@ if (( SELF_TEST == 1 )); then
   # guard report a leak that the run itself created.
   export PYTHONDONTWRITEBYTECODE=1
   "$PYTHON" scripts/run_contract_fixtures.py --self-test || exit 1
+  echo
+  echo "== self-test: the temporary-directory guard notices a leak, and does not invent one =="
+  temp_guard_self_test || exit 1
   exit 0
 fi
 
@@ -73,6 +158,11 @@ export PYTHONDONTWRITEBYTECODE=1
 # promising that the cleanup below covers every path.
 TREE_BEFORE="$(find . -path ./node_modules -prune -o -path ./.venv -prune -o \
   -path ./output -prune -o -path ./tmp -prune -o -path ./.cache -prune -o -print | sort)"
+# And the temporary directory as the run found it, for the first half of the second guard: the tree check
+# below can only see files that stayed INSIDE the checkout, and every one of this suite's leaks was outside
+# it. Taken after `RUN_DIR` exists, so the fixture tree this run is about to fill is in both snapshots and
+# cannot be mistaken for something the suites left.
+TEMP_BEFORE="$(temp_snapshot)"
 
 cleanup() {
   local status=$?
@@ -195,6 +285,37 @@ else
   printf '  FAIL  the run changed the tree; these paths are new:\n'
   comm -13 <(printf '%s\n' "$TREE_BEFORE") <(printf '%s\n' "$TREE_AFTER") | sed 's/^/        /'
   guard_status=1
+fi
+
+# AND THE RUN LEFT NOTHING IN THE TEMPORARY DIRECTORY EITHER, which is the half the check above cannot reach.
+# Same shape - snapshot before, compare after - over `TEMP_ROOT`, and only for the prefixes this suite is
+# known to create, so another program's scratch is not this guard's business (see the list at the top).
+#
+# IT IS COUNTED ONLY ON A RUN THAT REPORTED NO FAILURES, and that softening is the point rather than a hole in
+# it. A browser killed by a timeout, and a test killed with it, leave exactly what a clean run removes - so on
+# a run that already failed this check cannot tell "the suite leaks" from "the run was killed", and a guard
+# that cries leak on the run that was a victim is a guard the reader stops believing. A run that passed has no
+# such excuse, which is why that is the run held to it. The leftovers are still printed either way, with their
+# count and their prefix: a reader who is looking at a failed run should see them, and should see why they are
+# not being counted.
+#
+# WHAT IT CANNOT TELL APART, said here rather than found out later: a SECOND run of this suite - another
+# checkout of it, a parallel agent - makes the same names in the same directory, so a concurrent run looks
+# exactly like a leak. That is a property of measuring a directory everything shares, and the report names the
+# directories so a reader can check rather than guess; a private `TMPDIR` for the run would hide the leak
+# instead of naming it, which is the one thing this guard exists to prevent.
+TEMP_AFTER="$(temp_snapshot)"
+TEMP_NEW="$(temp_new_names "$TEMP_BEFORE" "$TEMP_AFTER")"
+if [[ -z "$TEMP_NEW" ]]; then
+  printf '  ok    the run left no new directory in %s\n' "$TEMP_ROOT"
+elif (( python_status == 0 && node_status == 0 )); then
+  printf '  FAIL  the run passed and still left new directories in %s:\n' "$TEMP_ROOT"
+  temp_leak_report "$TEMP_NEW"
+  guard_status=1
+else
+  printf '  note  the run reported a failure, so these new directories in %s are NOT counted as a leak\n' "$TEMP_ROOT"
+  printf '        (a killed browser and a killed test leave what a clean run removes; see the note above)\n'
+  temp_leak_report "$TEMP_NEW"
 fi
 
 if (( guard_status != 0 )); then

@@ -20,6 +20,10 @@
  *      must end the run rather than hang it, and `--max-rounds` makes that a decision instead of an accident.
  *   3. A ROUND THAT CHANGES NOTHING IS THE LAST ONE. If a round reveals no new controls, a further round cannot do
  *      anything either, so the loop stops there rather than re-running to confirm.
+ *   4. A REFUSAL IS REPORTED, WHATEVER SENTENCE IT IS WRITTEN IN. The loop's silence about a field the fill could
+ *      not set is the one reading that costs an application, because the loop's own conclusion ("stable") then
+ *      reads as "nothing left to do". The sentences are read by `fill_failures.mjs`, which is where that lesson -
+ *      and its test - lives.
  *
  * Usage:
  *   node src/forms/refill_until_stable.mjs <url-substring> [--job "Twitch — Software Engineer I"]
@@ -29,6 +33,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseFillFailures, refusalReportLines } from "./fill_failures.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..", "..");
@@ -111,7 +116,11 @@ console.log(`  rounds: at most ${maxRounds}; stops when a round reveals no NEW c
 
 let previous = null;
 let stable = false;
-const fillFailures = new Map();  // ref -> the option text the filler could not find
+// ref -> the filler's own record for the LAST round that refused this field. The two kinds that arrive here are not
+// interchangeable and are kept apart by `fill_failures.mjs`: an option the control never offered carries a VALUE and
+// has a tool that can retry it, while a typeahead refusal carries none - the list was asked, and it does not hold
+// the place. This map is what both sections after the loop are built from.
+const fillFailures = new Map();
 for (let round = 1; round <= maxRounds; round++) {
   const fields = join(outDir, `refill_r${round}_fields.json`);
   const specPath = join(outDir, `refill_r${round}.spec.json`);
@@ -165,8 +174,13 @@ for (let round = 1; round <= maxRounds; round++) {
   // A FIELD THE DRAFTER ANSWERED AND THE FILLER COULD NOT SET. This is a different failure from "needs_review": the
   // value reached the spec, and the fill failed, so nothing files the field anywhere - the only record of what was
   // wanted is this line, and until now the loop discarded it. Kept per round and used after the loop stabilises.
-  for (const m of (fill.stdout || "").matchAll(/FAIL\s+\S+\s+(\S+)\s+option not found:\s*(.+)/g)) {
-    fillFailures.set(String(m[1]).replace(/^id:/, ""), m[2].trim());
+  //
+  // THE SENTENCE IS NOT THE FILTER (`fill_failures.mjs`). The inline pattern this replaced matched exactly one of
+  // them - `option not found:` - so the place-picker refusal ("typeahead did not commit a place naming …", the
+  // correct outcome when a list offers only namesakes) was read by nothing, and a field refused in EVERY round
+  // ended up in a report that said the form was stable.
+  for (const failure of parseFillFailures(fill.stdout)) {
+    fillFailures.set(failure.ref, { ...failure, round });
   }
   const unmentioned = (fill.stdout.match(/never mentioned[^\n]*?(\d+)/) || [])[1];
   // Answered is the spec's size; filled is what the log says actually landed. Printing only the first is how a blank
@@ -235,7 +249,12 @@ const reviewPath = join(outDir, "refill_r1.spec.needs_review.json");
   }
   // ...AND THE FIELDS THE DRAFTER ANSWERED BUT THE FILL COULD NOT SET. Their value is the one the filler tried, which
   // is the value the drafter chose - so for a remote list it is exactly what the tool needs.
-  for (const [bare, value] of fillFailures) {
+  for (const [bare, failure] of fillFailures) {
+    // ONLY A REFUSAL THAT CARRIES A VALUE CAN BE DRIVEN BY A TOOL. `option not found: <text>` is a control that was
+    // asked for an option it does not offer, and `answer_structured_option.mjs` retries it with that text as a
+    // filter. A typeahead refusal has no such text: the list WAS asked, and it holds only namesakes - the correct
+    // outcome is the blank field, and it is reported below instead of retried.
+    if (failure.reason !== "option_not_found") continue;
     if (remote.some(r => String(r.ref).replace(/^id:/, "") === bare)) continue;
     const f = byRef.get(bare);
     if (!f) continue;
@@ -244,8 +263,19 @@ const reviewPath = join(outDir, "refill_r1.spec.needs_review.json");
     const options = f.options || [];
     const isRemote = recipe.open === "click control" || recipe.open === "click input or toggle"
       || ((kind === "react_select" || kind === "input_combobox") && options.length === 0);
-    if (isRemote) remote.push({ ref: bare, value, kind, n: options.length, from: "the fill log" });
+    if (isRemote) remote.push({ ref: bare, value: failure.value, kind, n: options.length, from: "the fill log" });
   }
+
+  // WHAT THE FILL ASKED FOR AND DID NOT GET, SAID OUT LOUD. These are the failures no tool after this point will try
+  // again - the place picker that will not commit a namesake, a group that was not on the page, a control that would
+  // not take the value - and each of them is a field the form still wants. They used to be dropped on the floor by
+  // the loop's own parser (which matched one sentence and one only), so a run could end with "stable" and a required
+  // field that had been refused in every single round. Silence there is the reading that costs an application: the
+  // loop's conclusion is a statement about NEW CONTROLS, and this section is what stops it being read as a statement
+  // about the form. `refusalReportLines` is where the lines are built, so that the report can be tested without a
+  // live form that refuses.
+  const handled = new Set(remote.map(r => String(r.ref).replace(/^id:/, "")));
+  for (const line of refusalReportLines(fillFailures.values(), handled)) console.log(line);
 
   if (remote.length) {
     console.log(`\n--- ${remote.length} remote list(s) the loop cannot reach; driving them with their own tool ---`);

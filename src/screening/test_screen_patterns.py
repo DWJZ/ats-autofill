@@ -23,6 +23,7 @@ import io
 import json
 import os
 import pathlib
+import shutil
 import sys
 import tempfile
 import unittest
@@ -44,7 +45,8 @@ spec.loader.exec_module(screen)
 # FileNotFoundError for a file `setup-examples.sh` had created; each passed when run alone, which is what
 # a global set in a test module looks like from the outside.
 _previous_ats_data_dir = os.environ.get("ATS_DATA_DIR")
-os.environ["ATS_DATA_DIR"] = tempfile.mkdtemp(prefix="screen-patterns-")
+_empty_data_dir = tempfile.mkdtemp(prefix="screen-patterns-")
+os.environ["ATS_DATA_DIR"] = _empty_data_dir
 try:
     SNP_MODULE = pathlib.Path(__file__).with_name("screen_newgrad_postings.py")
     snpspec = importlib.util.spec_from_file_location("screen_newgrad_postings_under_test", SNP_MODULE)
@@ -55,6 +57,27 @@ finally:
         os.environ.pop("ATS_DATA_DIR", None)
     else:
         os.environ["ATS_DATA_DIR"] = _previous_ats_data_dir
+    # THE DIRECTORY HAS DONE ITS WHOLE JOB BY THE TIME BOTH IMPORTS ARE DONE, and it used to stay for the
+    # lifetime of the interpreter - which is the run, so it was one empty directory per python run, forever.
+    # Nothing below can tell the difference: the settings it filled in were resolved DURING these two imports,
+    # and the readers of that path that run later (`load_sources`, `load_candidate_profile`) are looking for a
+    # file this directory never held - it was created empty and stays empty - so for them "an empty directory"
+    # and "no directory at all" are the same answer, down to the same FileNotFoundError they already catch.
+    shutil.rmtree(_empty_data_dir, ignore_errors=True)
+
+
+class TheEmptyDataDirectoryIsGoneOnceTheLoadIsDone(unittest.TestCase):
+    """The directory the load pointed the settings at is removed BY the load, not left to the interpreter.
+
+    The assertion the leak was found with, made where the directory is made. `screen-patterns-` existed once
+    per python run - empty, unread and impossible to notice, which is exactly what a `mkdtemp` at module scope
+    with no name bound to it looks like. This failing means the removal above has been dropped, and the count
+    in `scripts/run-contract-tests.sh` would otherwise be the first thing to say so, a whole run later.
+    """
+
+    def test_the_directory_the_module_made_was_removed_by_the_module(self):
+        self.assertFalse(pathlib.Path(_empty_data_dir).exists(),
+                         f"the load left {_empty_data_dir} behind; it is removed in the `finally` above")
 
 
 class HardBarPatternTest(unittest.TestCase):

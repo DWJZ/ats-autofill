@@ -9,6 +9,7 @@ import importlib.util
 import io
 import json
 import pathlib
+import shutil
 import sys
 import tempfile
 import unittest
@@ -188,7 +189,13 @@ class GroupAnswerTest(unittest.TestCase):
     `group_label`; these drive the real `main()` over a synthetic inventory to prove it lands.
     """
     def draft(self, fields):
-        tmp = pathlib.Path(tempfile.mkdtemp())
+        # A NAMED DIRECTORY THAT THE CASE REMOVES, and both halves are the point. A bare `mkdtemp()` left 16
+        # directories per run - this helper is called from tests in two classes - and it had no name for a
+        # sweep to match on, which is how it outlived the sweep that found the families beside it. The prefix
+        # is what `scripts/run-contract-tests.sh` watches; `addCleanup` is what removes it, on every way out of
+        # a test rather than only on the one that returns.
+        tmp = pathlib.Path(tempfile.mkdtemp(prefix="draft-spec-"))
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
         inventory = tmp / "fields.json"
         produced = tmp / "spec.json"
         inventory.write_text(json.dumps({"url": "https://example.test/apply", "fields": fields}), encoding="utf-8")
@@ -524,7 +531,10 @@ class LocationTypeaheadDraftingTest(unittest.TestCase):
     }
 
     def draft(self, fields):
-        tmp = pathlib.Path(tempfile.mkdtemp())
+        # The second copy of the helper above, and it leaked the same 16 directories: same prefix so the
+        # guard can see it, same `addCleanup` so the removal does not depend on the test returning.
+        tmp = pathlib.Path(tempfile.mkdtemp(prefix="draft-spec-"))
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
         inventory = tmp / "fields.json"
         produced = tmp / "spec.json"
         inventory.write_text(json.dumps({"url": "https://job-boards.greenhouse.io/greenhouse/jobs/8279799",

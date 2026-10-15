@@ -349,7 +349,7 @@ class ApplicationPipelineTests(unittest.TestCase):
         )
 
 
-def load_assistant_with_profile(profile: dict):
+def load_assistant_with_profile(case: unittest.TestCase, profile: dict):
     """`job_app_assistant` with a candidate profile THIS TEST supplies, not the installed one.
 
     The module reads its profile path from `ATS_DATA_DIR` at import time (`src/paths.py` reads the setting
@@ -357,8 +357,15 @@ def load_assistant_with_profile(profile: dict):
     has to set the directory and re-import rather than mutate somebody's installed profile. The directory
     comes back with the module, because a test that drives the CLI as a SUBPROCESS has to set the variable
     for that process too - the re-import only reaches this one.
+
+    THE DIRECTORY IS REMOVED BY THE CASE'S OWN CLEANUP, and the case is a parameter because of it: this
+    function cannot remove what it hands back - the directory has to outlive the call, one caller points a
+    subprocess at it - and a temporary file nobody owns is the leak this suite had 16 of per run.
+    `addCleanup` is the whole mechanism: it runs on every way out of a test, passing, failing, erroring or
+    skipping, which is more than a line after the call would cover.
     """
     directory = tempfile.mkdtemp(prefix="assistant-profile-")
+    case.addCleanup(shutil.rmtree, directory, ignore_errors=True)
     path = Path(directory) / "candidate_profile.json"
     path.write_text(json.dumps(profile, ensure_ascii=False), encoding="utf-8")
     previous = os.environ.get("ATS_DATA_DIR")
@@ -443,12 +450,17 @@ class TheTrackerRowSurvivesADataDirectoryOutsideTheCheckout(unittest.TestCase):
     """
 
     def test_a_manifest_outside_the_checkout_is_a_path_that_still_finds_it(self):
-        outside = Path(tempfile.mkdtemp(prefix="manifest-outside-")) / "application_bundles" / "role.json"
-        spelled = pipeline.manifest_note_path(outside)
-        self.assertTrue(Path(spelled).is_absolute(), f"{spelled} is not a path that resolves from elsewhere")
-        self.assertEqual(Path(spelled), outside)
-        with self.assertRaises(ValueError):
-            outside.relative_to(pipeline.ROOT)  # the premise: this is what used to be called
+        # `TemporaryDirectory` rather than `mkdtemp`: the assertions below need the directory to exist, and the
+        # block removes it on every way out of it - including an assertion failing half way through. It is the
+        # idiom the rest of this file already uses for a directory that lives for one test, and the `mkdtemp`
+        # this replaces left an empty directory in the machine's temp directory once per run.
+        with tempfile.TemporaryDirectory(prefix="manifest-outside-") as directory:
+            outside = Path(directory) / "application_bundles" / "role.json"
+            spelled = pipeline.manifest_note_path(outside)
+            self.assertTrue(Path(spelled).is_absolute(), f"{spelled} is not a path that resolves from elsewhere")
+            self.assertEqual(Path(spelled), outside)
+            with self.assertRaises(ValueError):
+                outside.relative_to(pipeline.ROOT)  # the premise: this is what used to be called
 
     def test_a_manifest_inside_the_checkout_keeps_the_short_repository_relative_form(self):
         inside = pipeline.ROOT / "data" / "application_bundles" / "role.json"
@@ -547,7 +559,7 @@ class NoTrackIsNamedInCode(unittest.TestCase):
                 "do_not_claim": [], **extra}
 
     def test_a_posting_that_names_no_track_still_recommends_one_the_profile_defines(self):
-        _directory, _, assistant = load_assistant_with_profile(self.profile())
+        _directory, _, assistant = load_assistant_with_profile(self, self.profile())
         analysis = assistant.build_analysis(self.POSTING, "https://example.invalid/jobs/1", self.profile())
         self.assertEqual(analysis.track_scores, {"platform_data": 0, "web_ui": 0})
         self.assertIn(analysis.recommended_track, self.TRACKS,
@@ -556,20 +568,20 @@ class NoTrackIsNamedInCode(unittest.TestCase):
 
     def test_a_declared_default_track_decides_when_nothing_scored(self):
         profile = self.profile(default_track="web_ui")
-        _directory, _, assistant = load_assistant_with_profile(profile)
+        _directory, _, assistant = load_assistant_with_profile(self, profile)
         analysis = assistant.build_analysis(self.POSTING, "https://example.invalid/jobs/1", profile)
         self.assertEqual(analysis.recommended_track, "web_ui")
 
     def test_a_track_that_does_score_still_wins(self):
         profile = self.profile(default_track="web_ui")
-        _directory, _, assistant = load_assistant_with_profile(profile)
+        _directory, _, assistant = load_assistant_with_profile(self, profile)
         analysis = assistant.build_analysis("React and design system work.", "https://example.invalid/jobs/1", profile)
         self.assertEqual(analysis.recommended_track, "web_ui")
         self.assertGreater(analysis.track_scores["web_ui"], 0)
 
     def test_a_profile_with_no_tracks_is_a_message_and_not_a_key_error(self):
         profile = {"candidate": {"name": "Nobody"}, "resume_tracks": {}, "do_not_claim": []}
-        _directory, _, assistant = load_assistant_with_profile(profile)
+        _directory, _, assistant = load_assistant_with_profile(self, profile)
         with self.assertRaises(SystemExit) as raised:
             assistant.build_analysis(self.POSTING, "https://example.invalid/jobs/1", profile)
         self.assertIn("resume_tracks", str(raised.exception))
@@ -581,7 +593,7 @@ class NoTrackIsNamedInCode(unittest.TestCase):
         the caller: the profile here defines no `backend`, so a run naming one must be refused with the
         names this profile DOES define.
         """
-        directory, profile, assistant = load_assistant_with_profile(self.profile())
+        directory, profile, assistant = load_assistant_with_profile(self, self.profile())
         result = subprocess.run(
             [sys.executable, str(assistant.__file__), "tailor", "--track", "backend", "--file", "-"],
             input="A posting.", capture_output=True, text=True, timeout=60,
@@ -611,7 +623,7 @@ class ACitizenshipRequirementIsABarOnlyForSomeoneWhoCannotMeetIt(unittest.TestCa
     US_PERSON = "You must have ITAR eligibility as a U.S. Person"
 
     def setUp(self):
-        _directory, _, self.assistant = load_assistant_with_profile({"candidate": {"name": "Example"}})
+        _directory, _, self.assistant = load_assistant_with_profile(self, {"candidate": {"name": "Example"}})
 
     def screen(self, sentence: str, applicant: str) -> tuple[str, list[str]]:
         return self.assistant.screen_eligibility(sentence.lower(), applicant)
@@ -657,7 +669,7 @@ class ACitizenshipRequirementIsABarOnlyForSomeoneWhoCannotMeetIt(unittest.TestCa
         profile = {"candidate": {"name": "Example", "standard_answers": {"work_authorization": "us_citizen"}},
                    "resume_tracks": {"backend": {"label": "Backend Engineer", "keywords": ["backend"]}},
                    "do_not_claim": []}
-        _directory, _, assistant = load_assistant_with_profile(profile)
+        _directory, _, assistant = load_assistant_with_profile(self, profile)
         analysis = assistant.build_analysis("Applicants must be US citizens. We build backend services.",
                                             "https://example.invalid/jobs/1", profile)
         self.assertEqual(analysis.eligibility, "NEEDS_CONFIRMATION", analysis.eligibility_notes)
@@ -742,6 +754,65 @@ class ACitizenshipRequirementIsABarOnlyForSomeoneWhoCannotMeetIt(unittest.TestCa
         # And it is a file that carries the applicant's own facts, which is why this matters at all.
         self.assertIn("autofill", str(resolved))
         Path(resolved).unlink(missing_ok=True)
+
+
+def temporary_directories(*prefixes: str) -> set[str]:
+    """The names directly under the machine's temp directory that start with one of `prefixes`.
+
+    The measurement this leak was found with - `ls "$TMPDIR" | grep '^assistant-profile-'` - and the one
+    `scripts/run-contract-tests.sh` now makes over a whole run. It counts NAMES rather than entries, which is
+    what makes it usable on a machine where other programs are also writing to the temp directory: a
+    directory this suite did not make is never in the set, so only a name that appeared between the two counts
+    can be a difference.
+    """
+    return {entry.name for entry in Path(tempfile.gettempdir()).iterdir() if entry.name.startswith(prefixes)}
+
+
+class NoTestInThisModuleLeavesATemporaryDirectoryBehind(unittest.TestCase):
+    """The two families of temporary directory this module used to leave, and the count that says it no longer does.
+
+    WHAT IT COST, AND WHY NOTHING SAW IT. `load_assistant_with_profile` called `mkdtemp(prefix=
+    "assistant-profile-")` and returned the directory, and `test_a_manifest_outside_the_checkout...` did the
+    same with `manifest-outside-`; nothing removed either. Measured on the tree this was written for: 16
+    directories of the first family and one of the second, per python run. A `mkdtemp` with no matching
+    cleanup looks exactly like one that has it - the removal is on another line, or in another method - so the
+    only thing that finds it is counting the directory both of them went into.
+
+    WHY THE SUBPROCESS IS THE POINT. No assertion inside a test can see the end of that test: `addCleanup`
+    runs after the method returns, and the manifest test's block closes after its last assertion too. So the
+    tests that write the directories are run as their own process and the count is compared ACROSS it, which
+    is the only place the answer exists. The classes are named rather than discovered, so this keeps measuring
+    the same subject as the rest of the module grows.
+    """
+
+    WATCHED = ("assistant-profile-", "manifest-outside-")
+    CLASSES = (
+        "NoTrackIsNamedInCode",                                        # four calls to the profile helper
+        "ACitizenshipRequirementIsABarOnlyForSomeoneWhoCannotMeetIt",  # one more of them, in `setUp`
+        "TheTrackerRowSurvivesADataDirectoryOutsideTheCheckout",       # the manifest spelled from outside
+    )
+
+    def test_running_them_removes_what_they_make(self):
+        before = temporary_directories(*self.WATCHED)
+        result = subprocess.run(
+            [sys.executable, "-m", "unittest", "-v",
+             *[f"test_application_pipeline.{name}" for name in self.CLASSES]],
+            cwd=Path(__file__).resolve().parent,
+            capture_output=True, text=True, timeout=180,
+            # The subprocess reads the same data directory this one does, and writes no bytecode into src/:
+            # a `__pycache__` this run added would be a file the contract runner's tree guard reports.
+            env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1"),
+        )
+        self.assertEqual(result.returncode, 0,
+                         "the subprocess run has to pass for the count below to mean anything:\n"
+                         f"{result.stderr[-2000:]}")
+        # A run that matched no test at all also exits clean, so the count is read rather than assumed - the
+        # same reason the contract runner refuses a run that reports a skip.
+        ran = re.search(r"^Ran (\d+) tests?", result.stderr, re.MULTILINE)
+        self.assertIsNotNone(ran, f"the subprocess reported no run at all:\n{result.stderr[-2000:]}")
+        self.assertGreater(int(ran.group(1)), 0)
+        left = temporary_directories(*self.WATCHED) - before
+        self.assertEqual(left, set(), f"these tests left temporary directories behind: {sorted(left)}")
 
 
 if __name__ == "__main__":
