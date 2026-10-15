@@ -51,6 +51,13 @@ export function collectFields() {
     }
     return "";
   };
+  /** A short, greppable name for the element a value was read from: `div.select__single-value#country`. */
+  const describeHolder = (holder, count) => {
+    const cls = typeof holder.className === "string"
+      ? (holder.className.trim().split(/\s+/).find(c => !/^(remix|css)-/.test(c)) || "") : "";
+    const where = `${holder.tagName.toLowerCase()}${holder.id ? "#" + holder.id : ""}${cls ? "." + cls : ""}`;
+    return count > 1 ? `${count} display nodes in ${where}` : where;
+  };
   const out = [];
   const collectControls = (root, out) => {
     for (const el of root.querySelectorAll("input,textarea,select,[role=combobox]")) out.push(el);
@@ -102,14 +109,39 @@ export function collectFields() {
     // this control's own container; the label fallback twelve lines up refuses a node that carries controls of its
     // own for the same reason. The wrapper remains the last resort for a control with no shell of its own, where the
     // value comes from `el.value` anyway.
+    //
+    // AND THE WRAPPER ONLY WHEN THIS CONTROL IS THE ONLY ONE IN IT (2026-10-14). The last resort itself had the same
+    // hole one level up: greenhouse board posting 8279799 puts the `Phone*` tel input and a react-select `Country*`
+    // dial-code selector inside ONE `fieldset.phone-input`, so the phone's value read as the COUNTRY's - which is
+    // the answer to a different question. `draft_form_spec.py` skips a field that looks answered, so on a refill a
+    // blank required phone would be skipped silently. A wrapper holding another control may not answer for this one.
+    //
+    // `value_from` RECORDS WHICH ELEMENT THE VALUE CAME FROM, because that is the part a reader cannot check by eye:
+    // a value read out of a display node is not the same evidence as one read out of the input, and a report that
+    // does not say which is which cannot be audited (`audit_form_fields.mjs` prints the same provenance).
     let value = "";
+    let valueFrom = "";
     // Computed here rather than reusing `selectShell`, which is declared further down for the fingerprint - reading it
     // first is a ReferenceError, and a scan that throws writes no inventory at all.
+    //
+    // ONE RULE FOR EVERY CONTAINER, THE CONTROL'S OWN SHELL INCLUDED: a container may answer for this control only
+    // when this control is the ONLY one in it. react-select mounts a second, ref-less `requiredInput` inside
+    // `.select-shell`, beside the real select, so a shell-sized read hands that phantom the real control's value -
+    // which is the fieldset case one level in.
+    const onlyControlIn = node => {
+      if (!node) return false;
+      const inside = [...node.querySelectorAll("input,textarea,select,[role=combobox]")]
+        .filter(n => vis(n) && (n.getAttribute("type") || "").toLowerCase() !== "hidden");
+      return inside.length === 1 && inside[0] === el;
+    };
     const ownShell = el.closest('[class*="select__control"], [class*="select-shell"]');
-    const displayHolder = ownShell || el.closest('[class*="control"]')?.parentElement || wrap;
+    const displayHolder = [ownShell, el.closest('[class*="control"]')?.parentElement, wrap].find(onlyControlIn) || null;
     if (displayHolder) {
       const sv = displayHolder.querySelectorAll("[class*=singleValue], [class*=multiValue], [class*=single-value]");
-      if (sv.length) value = [...sv].map(n => clean(n.textContent)).filter(Boolean).join(" | ");
+      if (sv.length) {
+        value = [...sv].map(n => clean(n.textContent)).filter(Boolean).join(" | ");
+        if (value) valueFrom = describeHolder(displayHolder, sv.length);
+      }
     }
     if (!value) {
       if (type === "checkbox" || type === "radio") value = el.checked ? "[checked]" : "[unchecked]";
@@ -169,6 +201,7 @@ export function collectFields() {
       // to a server that refuses it.
       required: el.required || el.getAttribute("aria-required") === "true" || label.includes("*"),
       value: value.slice(0, 80),
+      value_from: valueFrom.slice(0, 90),
       option_group: name || id || "",
       group_label: groupQuestion.slice(0, 160),
       widget_evidence: widgetEvidence,

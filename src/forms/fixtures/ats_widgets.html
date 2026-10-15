@@ -15,6 +15,16 @@
   .select__menu { border: 1px solid #999; margin-top: 2px; width: 260px; }
   .select__option { padding: 4px 8px; cursor: pointer; }
   .trigger { border: 1px dashed #999; padding: 6px 8px; width: 200px; cursor: pointer; }
+  /* intl-tel-input's own hidden class, verbatim: the country list inside it is IN the DOM and never on screen,
+     which is what makes an unscoped [role=option] search read dialling codes as form answers. */
+  .iti__hide { display: none; }
+  .phone-input { display: flex; gap: 24px; align-items: flex-end; }
+  .iti__selected-country { display: inline-flex; align-items: center; gap: 4px; }
+  .iti__flag { width: 16px; height: 11px; display: inline-block; background: #ccc; }
+  .iti__ca { background: #d52b1e; }
+  .iti__us { background: #3c3b6e; }
+  .iti__af { background: #007a36; }
+  .iti__globe { background: #999; }
 </style>
 </head>
 <body>
@@ -665,5 +675,248 @@ verified without touching a live application. <code>nameOnlyPair</code> is the s
     </div>
   </div>
 </fieldset>
+
+<!-- ══ THE GREENHOUSE PHONE COMPOSITE. Read live off greenhouse's own board, posting 8279799 (`Technical Support
+     Specialist`), 2026-10-14, in a headless Chrome on port 9333. ONE fieldset holds TWO controls - a react-select
+     `Country*` (the DIAL-CODE selector) and the `Phone*` tel input - and the audit read the country's value for
+     BOTH:
+
+         step7_audit.log:6  ok  REQ country  text  Country*  = +1
+         step7_audit.log:7  ok  REQ phone    tel   Phone*    = +1
+
+     `#phone` has no `[class*=control]` ancestor, so the audit's read fell back to `el.closest("[class*=question],
+     fieldset, …")` - the fieldset - and `holder.querySelectorAll("[class*=singleValue]")` found the COUNTRY's
+     value node inside it. Every check that ran asked "is there a value here" and answered yes (rule 5).
+
+     THE COUNTRY'S VALUE NODE IS A FRAGMENT OF THE OPTION, which is the second half. The option row says
+     `Canada +1` (its own markup: `<div class="iti__flag iti__ca"></div>Canada +1`), but the committed value node
+     renders `<div class="iti__flag iti__ca"></div><span>+1</span>` - textContent `+1`, a dialling code shared by
+     the United States, Canada and twenty Caribbean nations. A report saying `Country* = +1` cannot tell them
+     apart, and the country name IS still on the page: intl-tel-input keeps its whole country list mounted inside
+     the hidden dropdown, each row carrying `data-country-code` beside its own `.iti__country-name` and
+     `.iti__dial-code`. That list is what makes the committed option recoverable without a country table in code,
+     and it is why the fixture renders it rather than a value node that prints the country.
+
+     THE ROWS ARE ALSO THE REASON AN UNSCOPED `[role=option]` SEARCH IS A TRAP: they are always in the DOM, one of
+     them always highlighted, so a filler that reads "every visible menu" or "the first option" gets a dialling
+     code instead of a form answer. DoorDash's `Location (City)` was misdiagnosed twice on exactly this
+     (driving-widgets-cases-3). Three countries are rendered here; the live page mounts all 244. -->
+<fieldset class="phone-input" id="phoneComposite">
+  <legend>phoneComposite — a Country* dial-code select and a Phone* input inside ONE fieldset</legend>
+  <div class="phone-input__country">
+    <div class="select">
+      <div class="select__container">
+        <label id="country-label" for="country" class="label select__label">Country<span aria-hidden="true">*</span></label>
+        <div class="select-shell">
+          <div>
+            <div class="select__control" id="country_control" role="combobox" aria-expanded="false">
+              <div class="select__value-container">
+                <div class="select__placeholder" id="react-select-country-placeholder">Select...</div>
+                <div class="select__input-container" data-value="">
+                  <input class="select__input" id="country" type="text" role="combobox" aria-autocomplete="list"
+                         aria-haspopup="true" aria-expanded="false" aria-labelledby="country-label"
+                         aria-required="true" aria-invalid="false" autocapitalize="none" autocomplete="off"
+                         autocorrect="off" spellcheck="false" value="">
+                </div>
+              </div>
+              <div class="select__indicators"></div>
+            </div>
+          </div>
+          <input required tabindex="-1" aria-hidden="true" class="requiredInput" value="">
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="phone-input__phone">
+    <div class="text-input-wrapper"><div class="input-wrapper">
+      <label id="phone-label" for="phone" class="label label">Phone<span aria-hidden="true">*</span></label>
+      <div class="iti">
+        <div class="iti__country-container">
+          <button type="button" class="iti__selected-country" aria-expanded="false" aria-label="Select country"
+                  aria-haspopup="dialog" title="Select country">
+            <div class="iti__selected-country-primary">
+              <div class="iti__flag iti__globe"></div><div class="iti__arrow" aria-hidden="true"></div>
+            </div>
+          </button>
+          <div class="iti__dropdown-content iti__hide" role="dialog" aria-modal="true">
+            <ul class="iti__country-list" id="iti-0__country-listbox" role="listbox" aria-label="List of countries">
+              <li id="iti-0__item-ca" class="iti__country" tabindex="-1" role="option" data-dial-code="1"
+                  data-country-code="ca" aria-selected="false"><div class="iti__flag iti__ca"></div><span
+                  class="iti__country-name">Canada</span><span class="iti__dial-code" dir="ltr">+1</span></li>
+              <li id="iti-0__item-us" class="iti__country" tabindex="-1" role="option" data-dial-code="1"
+                  data-country-code="us" aria-selected="false"><div class="iti__flag iti__us"></div><span
+                  class="iti__country-name">United States</span><span class="iti__dial-code" dir="ltr">+1</span></li>
+              <li id="iti-0__item-af" class="iti__country iti__highlight" tabindex="-1" role="option"
+                  data-dial-code="93" data-country-code="af" aria-selected="false"><div
+                  class="iti__flag iti__af"></div><span class="iti__country-name">Afghanistan</span><span
+                  class="iti__dial-code" dir="ltr">+93</span></li>
+            </ul>
+          </div>
+        </div>
+        <input id="phone" type="tel" class="input input__single-line iti__tel-input" aria-label="Phone" required>
+      </div>
+    </div></div>
+  </div>
+</fieldset>
+
+<!-- ══ THE LOCATION TYPEAHEAD. `Location (City)*` on the same live page, same run: a react-select combobox whose
+     listbox IS NOT IN THE DOM until a query is typed into it. The scanner's own open pass read `options: []` for
+     this control while every other react-select on the page reported its list, and the drafter - with nothing to
+     resolve against - wrote the place itself as the option:
+
+         step7_fill.log:10  FAIL select id:candidate-location  option not found: Toronto, Ontario, Canada
+
+     THE ROWS BELOW ARE THE ONES THE LIVE LIST OFFERED, in its order, for the query `Toronto`. The second row is
+     the whole reason the fix reads its commit back: a picker that clicks the first row it can see is right here
+     and wrong on the next tenant, and `Toronto, Ontario, Canada` and `Toronto, Ohio, United States` are one city
+     name in two different countries. The list is filtered on the CITY SEGMENT of the query, which is what the
+     live list does - it is a remote place service and its rows exist only after a query is typed. -->
+<fieldset id="locationTypeahead">
+  <legend>locationTypeahead — Location (City)* on a react-select whose list does not exist until a query is typed</legend>
+  <div class="field-wrapper">
+    <label id="candidate-location-label" for="candidate-location" class="label select__label">Location (City)<span aria-hidden="true">*</span></label>
+    <div class="select-shell">
+      <div class="select__control" id="candidate-location-control" role="combobox" aria-expanded="false">
+        <div class="select__value-container">
+          <div class="select__input-container" data-value="">
+            <input class="select__input" id="candidate-location" type="text" role="combobox"
+                   aria-autocomplete="list" aria-haspopup="true" aria-expanded="false"
+                   aria-labelledby="candidate-location-label" aria-required="true" aria-invalid="false"
+                   autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false" value="">
+          </div>
+        </div>
+        <div class="select__indicators"></div>
+      </div>
+    </div>
+  </div>
+</fieldset>
+<script>
+  // ---- the phone composite ---------------------------------------------------------------------------------
+  //
+  // A country is committed from the react-select's own list (`Canada +1`) and the commit renders ONLY the dial
+  // code beside the flag - the fragment the audit reported. The list is created on demand and removed on commit,
+  // exactly as the live control's menu is; the country NAME is what stays in the iti list, which is hidden from
+  // the screen and never from the DOM.
+  (function phoneComposite() {
+    const input = document.getElementById('country');
+    const control = document.getElementById('country_control');
+    const valueContainer = control.querySelector('.select__value-container');
+    const COUNTRIES = ['United States', 'Canada', 'Afghanistan'];
+    const DIAL = {'United States': '1', Canada: '1', Afghanistan: '93'};
+    const CODE = {'United States': 'us', Canada: 'ca', Afghanistan: 'af'};
+    let menu = null;
+    const closeMenu = () => {
+      if (menu) { menu.remove(); menu = null; }
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-controls');
+    };
+    const openMenu = () => {
+      closeMenu();
+      menu = document.createElement('div');
+      menu.className = 'select__menu';
+      const list = document.createElement('div');
+      list.className = 'select__menu-list';
+      list.id = 'react-select-country-listbox';
+      list.setAttribute('role', 'listbox');
+      for (const name of COUNTRIES) {
+        const row = document.createElement('div');
+        row.className = 'select__option';
+        row.setAttribute('role', 'option');
+        row.innerHTML = '<div class="iti__flag iti__' + CODE[name] + '"></div>' + name + ' +' + DIAL[name];
+        row.addEventListener('click', () => {
+          // THE FRAGMENT: a flag element plus the dial code - what the live control renders for a commit whose
+          // option text was "Canada +1".
+          valueContainer.querySelectorAll('.select__single-value, .select__placeholder').forEach(n => n.remove());
+          const single = document.createElement('div');
+          single.className = 'select__single-value';
+          single.innerHTML = '<div class="iti__flag iti__' + CODE[name] + '"></div><span>+' + DIAL[name] + '</span>';
+          valueContainer.insertBefore(single, valueContainer.firstChild);
+          // Greenhouse syncs the paired intl-tel-input control from the react-select, so the chosen country is
+          // readable from it as well - the second place the country name survives on the live page.
+          const btn = document.querySelector('#phoneComposite .iti__selected-country');
+          btn.setAttribute('title', name);
+          btn.setAttribute('aria-label', 'Change country, selected ' + name + ' (+' + DIAL[name] + ')');
+          btn.querySelector('.iti__flag').className = 'iti__flag iti__' + CODE[name];
+          closeMenu();
+        });
+        list.appendChild(row);
+      }
+      menu.appendChild(list);
+      control.appendChild(menu);
+      input.setAttribute('aria-expanded', 'true');
+      input.setAttribute('aria-controls', 'react-select-country-listbox');
+    };
+    input.addEventListener('mousedown', (e) => { e.preventDefault(); if (menu) closeMenu(); else openMenu(); });
+    // Typing opens (or reopens) the list, exactly as react-select does - the filler's `search` path drives this
+    // control by typing, and a control that only opened on a mouse click could not be driven that way.
+    input.addEventListener('input', () => openMenu());
+  })();
+
+  // ---- the location typeahead -------------------------------------------------------------------------------
+  //
+  // `input` on the control is what creates the list: there is no listbox in the DOM before that, which is the
+  // shape the drafter must recognise and the filler must type into. Rows are the live list's own, filtered on the
+  // city segment of the query.
+  (function locationTypeahead() {
+    const input = document.getElementById('candidate-location');
+    const shell = input.closest('.select__control');
+    const LIST_ID = 'react-select-candidate-location-listbox';
+    const PLACES = [
+      'Toronto, Ontario, Canada',
+      'Toronto, Ohio, United States',
+      'Toronto, Kansas, United States',
+      'Town of Toronto, South Dakota, United States',
+      'Toronto, South Dakota, United States',
+      'Toronto, Iowa, United States',
+      'Toronto, England, United Kingdom',
+      'Toronto, Illinois, United States',
+      'Toronto, Antioquia, Colombia',
+      'London, Ontario, Canada',
+      'Springfield, Illinois, United States',
+    ];
+    let menu = null;
+    const closeMenu = () => {
+      if (menu) { menu.remove(); menu = null; }
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-controls');
+    };
+    const openMenu = (query) => {
+      closeMenu();
+      const city = String(query || '').split(',')[0].trim().toLowerCase();
+      const rows = city ? PLACES.filter(p => p.toLowerCase().startsWith(city)) : [];
+      if (!rows.length) return;
+      menu = document.createElement('div');
+      menu.className = 'select__menu';
+      const list = document.createElement('div');
+      list.className = 'select__menu-list';
+      list.id = LIST_ID;
+      list.setAttribute('role', 'listbox');
+      rows.forEach((text, index) => {
+        const row = document.createElement('div');
+        row.className = 'select__option';
+        row.id = 'react-select-candidate-location-option-' + index;
+        row.setAttribute('role', 'option');
+        row.textContent = text;
+        row.addEventListener('click', () => {
+          const container = shell.querySelector('.select__value-container');
+          container.querySelectorAll('.select__single-value, .select__placeholder').forEach(n => n.remove());
+          const single = document.createElement('div');
+          single.className = 'select__single-value';
+          single.textContent = text;
+          container.insertBefore(single, container.firstChild);
+          input.value = '';
+          closeMenu();
+        });
+        list.appendChild(row);
+      });
+      menu.appendChild(list);
+      shell.appendChild(menu);
+      input.setAttribute('aria-expanded', 'true');
+      input.setAttribute('aria-controls', LIST_ID);
+    };
+    input.addEventListener('input', () => openMenu(input.value));
+    input.addEventListener('mousedown', () => { if (!menu) openMenu(input.value); });
+  })();
+</script>
 </body>
 </html>

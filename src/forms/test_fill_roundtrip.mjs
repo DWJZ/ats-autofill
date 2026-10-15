@@ -697,6 +697,143 @@ test("roundtrip: a native multi-select accumulates instead of overwriting", asyn
     "a multiple select keeps every option the spec asked for");
 });
 
+/**
+ * Run the REAL audit against the fixture page and return its stdout, split into lines.
+ *
+ * The audit chooses its tab by a URL substring, and the fixture's own file name is that substring - so this is the
+ * tool the smoke run used (`step7_audit.log`), not a re-implementation of it. A read-back rule is only worth
+ * anything if the thing that prints the report is the thing under test.
+ */
+async function audit(fixture = "ats_widgets.html") {
+  const run = await spawnBounded("node", [join(HERE, "audit_form_fields.mjs"), fixture, "--cdp", cdpUrl],
+    { what: `the audit (audit_form_fields.mjs) on ${fixture}`, timeoutMs: SPAWN_BUDGET_MS, cwd: HERE });
+  return { ...run, lines: String(run.stdout || "").split("\n") };
+}
+
+/** The audit's own line for one control id, or "" when it printed none. */
+function auditRow(run, id) {
+  return run.lines.find(l => new RegExp(`^(ok|EMPTY|INVALID)\\s+(REQ|opt)\\s+${id}\\s`).test(l)) || "";
+}
+
+test("roundtrip: a place typeahead is typed into, picked from its rows, and read back", async (t) => {
+  if (!ready(t)) return;
+  // THE CASE THAT PAID FOR THIS (greenhouse board, posting 8279799 `Technical Support Specialist`, 2026-10-14,
+  // headless Chrome on port 9333). `Location (City)*` is `input#candidate-location`: a react-select combobox
+  // (`class="select__input"`, `role="combobox"`, `aria-autocomplete="list"`) whose LISTBOX IS NOT IN THE DOM until
+  // a query is typed into it. The drafter described it as an option list and the filler asked it for an option:
+  //
+  //     step7_fill.log:10  FAIL select id:candidate-location  option not found: Toronto, Ontario, Canada
+  //
+  // The shape is `locationTypeahead` in the fixture, whose rows are the live list's own rows for the query
+  // `Toronto`, in its order - the second of which is `Toronto, Ohio, United States`, a different city in a
+  // different country. The entry carries the address PARTS and the filler derives both the query to type and the
+  // acceptance test from them, so a commit is only accepted when the control reads back a place naming Ontario or
+  // Canada.
+  await fill({
+    target: "ats_widgets",
+    url: fixtureUrl("ats_widgets.html"),
+    selects: [{ ref: "id:candidate-location", option: "Toronto, Ontario, Canada",
+                typeahead: { city: "Toronto", state: "Ontario", country: "Canada" } }],
+  });
+  const shown = await readValue(
+    () => document.querySelector("#candidate-location-control .select__single-value")?.textContent || "",
+    "#candidate-location's committed display");
+  assert.equal(shown, "Toronto, Ontario, Canada", "the field must hold the place the profile names");
+});
+
+test("roundtrip: a typeahead whose list offers only namesakes commits nothing and says why", async (t) => {
+  if (!ready(t)) return;
+  // The half that makes the read-back worth having. The same control, the same rows, an address the list has no
+  // row for: `Toronto, Newfoundland and Labrador, Nowhere`. Every row offered namesakes of the CITY (`Toronto,
+  // Ohio, United States`, `Toronto, England, United Kingdom`, ...) and none names the state or country the profile
+  // asked for, so the picker must commit NOTHING rather than whichever row it happened to reach first - a wrong
+  // city committed silently is worse than an honest FAIL, because nothing downstream can tell the two apart.
+  //
+  // This is the Luma AI shape (2026-10-01) with the failure on the other side of the wire: there the bare city
+  // query committed `Springfield, Newfoundland and Labrador` and the picker called it COMMITTED, because the only
+  // thing it checked was the city name - which the wrong row contains too.
+  const run = await fill({
+    target: "ats_widgets",
+    url: fixtureUrl("ats_widgets.html"),
+    selects: [{ ref: "id:candidate-location", option: "Toronto, Newfoundland and Labrador, Nowhere",
+                typeahead: { city: "Toronto", state: "Newfoundland and Labrador", country: "Nowhere" } }],
+  });
+  const shown = await readValue(
+    () => document.querySelector("#candidate-location-control .select__single-value")?.textContent || "",
+    "#candidate-location's committed display");
+  const typed = await readValue(() => document.getElementById("candidate-location").value, "#candidate-location's input");
+  const line = run.stdout.split("\n").find(l => l.includes("candidate-location")) || "";
+  assert.ok(line, `the step must appear in the log:\n${run.stdout}`);
+  assert.match(line, /FAIL/, `no row named the place, so the field cannot have been filled:\n${line}`);
+  assert.match(line, /did not commit a place naming newfoundland and labrador/,
+    `the failure must state the acceptance test it refused on:\n${line}`);
+  assert.match(line, /The list offered: .*Toronto, Ohio, United States/,
+    `and it must name the rows it was actually offered, so the next reader does not re-derive them:\n${line}`);
+  assert.equal(shown, "", "nothing was committed - a namesake row must not be clicked just because it is there");
+  assert.equal(typed, "", "the query text must not be left in the field looking like an answer (Brex's `He` x5)");
+});
+
+test("roundtrip: the audit reads a composite's two controls apart, and resolves a fragmented value", async (t) => {
+  if (!ready(t)) return;
+  // THE AUDIT'S OWN REPORT, from the same live page and the same run as the case above:
+  //
+  //     step7_audit.log:6  ok  REQ country  text  Country*  = +1
+  //     step7_audit.log:7  ok  REQ phone    tel   Phone*    = +1
+  //
+  // `Country*` and `Phone*` are TWO controls inside ONE `fieldset.phone-input` (the shape is `phoneComposite`):
+  // a react-select dial-code selector and the tel input beside it. Both rows reported `+1`; the phone's real value
+  // (`+1 416-555-0182`) was never read. Two rules were wrong, and each had a witness here:
+  //
+  //   * the phone read the COUNTRY's value node, because the read fell back to the fieldset when the tel input had
+  //     no `[class*=control]` ancestor of its own - a wrapper may not answer for a control inside it;
+  //   * the country's value was a FRAGMENT of the option it committed. The option row says `Canada +1`
+  //     (`<div class="iti__flag iti__ca"></div>Canada +1`) and the committed value node renders
+  //     `<div class="iti__flag iti__ca"></div><span>+1</span>`, i.e. textContent `+1` - shared by the United
+  //     States, Canada and twenty Caribbean nations. The country NAME survives in the widget's own mounted country
+  //     list (`[data-country-code="ca"]` -> `Canada` + `+1`), which is what the audit resolves it from, and the
+  //     element it read is recorded beside the value so the resolution is checkable.
+  await fill({
+    target: "ats_widgets",
+    url: fixtureUrl("ats_widgets.html"),
+    selects: [{ ref: "id:country", option: "Canada +1", search: "Canada" }],
+    texts: [{ ref: "id:phone", value: "+1 416 555 0182" }],
+  });
+  const committed = await readValue(
+    () => document.querySelector("#country_control .select__single-value")?.textContent || "",
+    "#country's committed display");
+  assert.equal(committed, "+1", "the fixture renders the fragment the live control renders - the reason this test exists");
+  const run = await audit();
+  const country = auditRow(run, "country");
+  const phone = auditRow(run, "phone");
+  assert.ok(country, `the audit must report the country control:\n${run.stdout}`);
+  assert.ok(phone, `the audit must report the phone control:\n${run.stdout}`);
+  assert.match(country, /=\s*Canada \+1\s/,
+    `the country's committed OPTION must be reported, not the dial code alone:\n${country}`);
+  assert.match(country, /\[.*iti__ca.*\]/,
+    `the row must say which element the value came from, and that a fragment was resolved:\n${country}`);
+  assert.match(phone, /=\s*\+1 416 555 0182\s*$/,
+    `the phone must report its OWN value, not the neighbouring country control's:\n${phone}`);
+});
+
+test("roundtrip: an answer that did not land is not read back out of the wrapper beside it", async (t) => {
+  if (!ready(t)) return;
+  // The same rule from the other side, and the direction that costs a submission: the PHONE is empty and the
+  // COUNTRY is answered. A read that falls back to the shared fieldset finds the country's value node and reports
+  // the phone as answered - "every check that ran asked 'is there a value here' and answered yes" (rule 5). The
+  // audit must call it EMPTY, because the employer will, and the phone number is the one thing on this widget the
+  // candidate has to supply himself.
+  await fill({
+    target: "ats_widgets",
+    url: fixtureUrl("ats_widgets.html"),
+    selects: [{ ref: "id:country", option: "Canada +1", search: "Canada" }],
+  });
+  const run = await audit();
+  const phone = auditRow(run, "phone");
+  assert.ok(phone, `the audit must report the phone control:\n${run.stdout}`);
+  assert.match(phone, /^EMPTY\s+REQ\s+phone\s/,
+    `an empty phone whose neighbour is answered must be reported EMPTY, not borrowed:\n${phone}`);
+});
+
 test("roundtrip: pick_option refuses an option the control does not offer", async (t) => {
   if (!ready(t)) return;
   // Exit 3 is the contract that matters most: "nothing was set, record it - do not invent a value".

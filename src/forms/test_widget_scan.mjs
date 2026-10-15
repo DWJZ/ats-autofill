@@ -598,3 +598,66 @@ test("applyAffordance: a page whose form is not open names the control that open
   assert.equal(hit.tag, "a");
   assert.equal(hit.href, "?apply=1");
 });
+
+test("locationTypeahead: the list does not exist until a query is typed, and the scanner says so", async (t) => {
+  if (!needsBrowser(t)) return;
+  // greenhouse board, posting 8279799 (`Technical Support Specialist`), 2026-10-14, headless Chrome on port 9333.
+  // `Location (City)*` is `input#candidate-location`, a react-select combobox with `role="combobox"` and
+  // `aria-autocomplete="list"` whose listbox is NOT in the DOM at rest. The two facts below are what the whole fix
+  // rests on: the scanner reports NO options for this control (the live inventory wrote `options: []` for it while
+  // `Country*` on the same page reported 244), and its rows exist only after a query is typed. `draft_form_spec.py`
+  // keys on exactly that, which is why it is asserted here and not only in the filler.
+  const { fields } = await scan("ats_widgets.html");
+  const control = fields.find(f => f.ref === "id:candidate-location");
+  assert.ok(control, "the control must be addressable by its id - it is what a spec entry names");
+  assert.equal(control.widget.kind, "react_select");
+  assert.deepEqual(control.options, [], "there is no list to read before anything is typed into it");
+  assert.equal(control.widget.optionsStatus, "not_observed",
+    "the inventory must SAY the list was not observed - an empty list and an unread one are different facts");
+  const lists = await withFixture(browser, "ats_widgets.html", async (page) => {
+    const closed = await page.locator("#candidate-location").evaluate(readAssociatedOptions);
+    await page.click("#candidate-location");
+    await page.keyboard.type("Toronto", { delay: 20 });
+    await page.waitForTimeout(400);
+    const opened = await page.locator("#candidate-location").evaluate(readAssociatedOptions);
+    return { closed, opened };
+  });
+  assert.deepEqual(lists.closed, [], "a typeahead offers nothing until it is asked, so nothing may be read from it");
+  assert.deepEqual(lists.opened.slice(0, 2), ["Toronto, Ontario, Canada", "Toronto, Ohio, United States"],
+    "the rows the live list offered for `Toronto`, in its order - the second being the namesake a read-back is for");
+});
+
+test("phoneComposite: the scanner reads each control's own value, never the sibling's", async (t) => {
+  if (!needsBrowser(t)) return;
+  // Same page, same run: a react-select `Country*` dial-code selector and the `Phone*` tel input live inside ONE
+  // `fieldset.phone-input`. A scan that falls back to the fieldset for a control with no shell of its own reads the
+  // COUNTRY's value node for both - and `draft_form_spec.py` SKIPS a field that looks answered, so on a refill a
+  // blank required phone is never drafted and nothing reports it. The values are read with the page in the state a
+  // fill leaves it in, because at rest both controls are empty and the rule would be untested.
+  const rows = await withFixture(browser, "ats_widgets.html", async (page) => {
+    await page.click("#country");
+    await page.waitForTimeout(150);
+    await page.keyboard.type("Canada", { delay: 20 });
+    await page.waitForTimeout(350);
+    await page.click('#react-select-country-listbox [role="option"]');
+    await page.waitForTimeout(150);
+    await page.click("#phone");
+    await page.keyboard.type("+1 416 555 0182", { delay: 10 });
+    await page.waitForTimeout(150);
+    return page.evaluate(collectFields);
+  });
+  const country = rows.find(f => f.ref === "id:country");
+  const phone = rows.find(f => f.ref === "id:phone");
+  assert.ok(country && phone, "both controls of the composite must be in the inventory");
+  assert.equal(country.value, "+1", "the control renders the dial code alone; that is what it commits to the DOM");
+  assert.match(country.value_from, /select__control/,
+    "and the inventory records the element the value was read from, so a reader can see it is a display node and not an input");
+  assert.equal(phone.value, "[masked]",
+    "the scanner masks a tel value by its own convention - and a MASK is still this control's own state, not the sibling's value node beside it");
+  assert.notEqual(phone.value, country.value,
+    "the two controls of one composite must not report the same value, which is what happened when the fieldset answered for the phone");
+  assert.equal(phone.value_from, "", "the value came from the control's own input, so there is no provenance to record");
+  const phantom = rows.find(f => !f.ref && String(f.label || "").startsWith("phoneComposite"));
+  assert.ok(phantom, "react-select's ref-less requiredInput lives in the same shell and is reported too");
+  assert.equal(phantom.value, "", "it has no value of its own, and a shell-sized read would hand it the real one's");
+});

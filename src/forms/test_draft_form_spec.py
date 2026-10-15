@@ -483,5 +483,130 @@ class CitizenshipIsNotResidenceTest(unittest.TestCase):
         self.assertEqual(table["bachelor_degree"], "Bachelor's Degree")
 
 
+class LocationTypeaheadDraftingTest(unittest.TestCase):
+    """A place whose list does not exist until a query is typed is not described as an option list.
+
+    THE CASE THAT PAID FOR THIS. greenhouse board, posting 8279799 (`Technical Support Specialist`), 2026-10-14,
+    driven in a headless Chrome on port 9333. `Location (City)*` is `input#candidate-location`: a react-select
+    combobox with `role="combobox"`, `aria-autocomplete="list"` and no listbox in the DOM until something is
+    typed. The scanner's open pass read NO options for it while the same page's `Country*` control reported 244,
+    so the drafter had nothing to resolve against, `resolve_option` handed the address straight back, and the spec
+    asked the control for the option `Toronto, Ontario, Canada` - which it can never offer:
+
+        step7_fill.log:10  FAIL select id:candidate-location  option not found: Toronto, Ontario, Canada
+
+    The field is now drafted as what it is: the place to commit (the profile's own address), from which the query
+    to type and the acceptance test a committed row must satisfy are both derived by
+    `src/forms/location_place.mjs`. The inventory rows below are the live scan's own, trimmed to the fields that
+    matter (the full row is `tmp/greenhouse_tss_fields.json` in the cold-start smoke run).
+    """
+
+    #: The phantom react-select `<input required aria-hidden class="…-requiredInput">` sits inside the same shell
+    #: and reads as a second, ref-less react-select. The drafter never drafts a ref-less field, and it must not
+    #: draft one of THESE as a typeahead either.
+    LOCATION_ROW = {
+        "ref": "id:candidate-location", "key": "id:candidate-location", "tag": "input", "type": "text",
+        "role": "combobox", "react_select": True, "label": "Location (City)*", "help": "*", "required": True,
+        "value": "", "option_group": "candidate-location", "group_label": "",
+        "widget_evidence": {"selectControl": True, "selectedDisplay": False, "listbox": False, "toggle": False,
+                            "nativeMultiple": False, "multiSelect": False},
+        "options": [],
+        "widget": {"kind": "react_select", "fingerprint": "widget/v1/react_select/standard", "options": [],
+                   "optionsStatus": "not_observed", "verificationStatus": "observable"},
+    }
+    PHANTOM_ROW = {
+        "ref": "", "key": "input:8", "tag": "input", "type": "", "role": "", "react_select": False,
+        "label": "Location (City)*", "help": "*", "required": True, "value": "", "option_group": "",
+        "group_label": "", "options": [],
+        "widget_evidence": {"selectControl": True, "selectedDisplay": False, "listbox": False, "toggle": False},
+        "widget": {"kind": "react_select", "fingerprint": "widget/v1/react_select/standard", "options": [],
+                   "optionsStatus": "not_observed", "verificationStatus": "observable"},
+    }
+
+    def draft(self, fields):
+        tmp = pathlib.Path(tempfile.mkdtemp())
+        inventory = tmp / "fields.json"
+        produced = tmp / "spec.json"
+        inventory.write_text(json.dumps({"url": "https://job-boards.greenhouse.io/greenhouse/jobs/8279799",
+                                         "fields": fields}), encoding="utf-8")
+        with mock.patch.object(sys, "argv", ["draft_form_spec.py", str(inventory), "--out", str(produced)]), \
+                contextlib.redirect_stdout(io.StringIO()):
+            drafter.main()
+        review = json.loads(produced.with_name(produced.stem + ".needs_review.json").read_text(encoding="utf-8"))
+        return json.loads(produced.read_text(encoding="utf-8")), review["needs_review"]
+
+    def profile_address(self) -> dict:
+        """The address the drafter itself will read, so this test holds for any configuration.
+
+        Read straight from the profile and NOT through the module under test: a test that needed a helper to exist
+        before it could report that the helper's OUTPUT is wrong would error instead of failing, and the failure
+        message is the half that tells the next reader what broke. Hardcoding "Springfield, Illinois, United States
+        of America" would be worse still - it would pass only on the shipped examples, and the run that matters is
+        the one against a real profile.
+        """
+        app = json.loads((drafter.DATA_DIR / "application_profile.json").read_text(encoding="utf-8"))
+        address = (app.get("candidate") or {}).get("address") or {}
+        return {k: str(address.get(k) or "").strip() for k in ("city", "state", "country")}
+
+    def test_the_live_location_control_is_drafted_as_a_typeahead(self):
+        spec, review = self.draft([dict(self.LOCATION_ROW)])
+        parts = self.profile_address()
+        self.assertEqual(len(spec["selects"]), 1)
+        entry = spec["selects"][0]
+        self.assertEqual(entry["ref"], "id:candidate-location")
+        self.assertIn("typeahead", entry,
+                      "a place picker whose list does not exist yet must be described as a typeahead, not as an "
+                      "option list - the option it was described with could never be offered")
+        self.assertEqual(entry.get("typeahead"), parts,
+                         "the entry must carry the address PARTS the place rule derives the query from")
+        self.assertEqual(entry["option"], ", ".join(p for p in (parts["city"], parts["state"], parts["country"]) if p))
+        self.assertIn("typeahead", entry["note"])
+        self.assertEqual(review, [], "a drafted typeahead is not a gap - it must not be listed for review")
+
+    def test_a_place_on_a_fixed_list_keeps_the_ordinary_option_path(self):
+        # The same question and the same place on a control that DID report its list: the field is an option
+        # again, and `option not found` is then the right outcome if the place is not on the tenant's list.
+        parts = self.profile_address()
+        place = ", ".join(p for p in (parts["city"], parts["state"], parts["country"]) if p)
+        row = dict(self.LOCATION_ROW)
+        row["options"] = [place, "Somewhere Else, Nowhere"]
+        row["widget"] = dict(self.LOCATION_ROW["widget"], options=row["options"], optionsStatus="observed")
+        spec, _ = self.draft([row])
+        self.assertEqual(len(spec["selects"]), 1)
+        self.assertNotIn("typeahead", spec["selects"][0])
+        self.assertEqual(spec["selects"][0]["option"], place)
+
+    def test_a_question_that_is_not_the_profile_place_is_untouched(self):
+        # The rule must not swallow every option-less control on the page: the same shape with a question the
+        # profile does not answer stays exactly as it was (here: an unanswered question, so it is reported).
+        row = dict(self.LOCATION_ROW)
+        row["ref"], row["key"] = "id:question_1", "id:question_1"
+        row["label"] = "Do you like pineapples on pizza?*"
+        spec, review = self.draft([row])
+        self.assertEqual([s for s in spec["selects"] if "typeahead" in s], [])
+        self.assertEqual(len(review), 1)
+
+    def test_a_preference_is_not_drafted_as_the_home_address(self):
+        # `desired_location` answers "preferred work location" from a ranked preference list. It is a place, but
+        # it is not the address, and typing it into a control as if it were the home address is a claim about the
+        # candidate that the profile did not make: the rule fires on the ANSWER matching the profile's joined
+        # address, not on the answer merely looking like a place.
+        row = dict(self.LOCATION_ROW)
+        row["ref"], row["key"] = "id:preferred", "id:preferred"
+        row["label"] = "Which office would you work from?*"
+        spec, _ = self.draft([row])
+        for entry in spec["selects"]:
+            self.assertNotIn("typeahead", entry)
+
+    def test_the_ref_less_phantom_control_is_never_drafted(self):
+        # The live page carries a second, ref-less react-select inside the same shell (react-select's own
+        # `requiredInput`), and it reads on the scan as a second `Location (City)*` with no options. It has no ref
+        # to type into, so it must be skipped - and it must not be reported as a gap for a person either, which is
+        # the behaviour it already had.
+        spec, review = self.draft([dict(self.PHANTOM_ROW), dict(self.LOCATION_ROW)])
+        self.assertEqual([s["ref"] for s in spec["selects"]], ["id:candidate-location"])
+        self.assertEqual(review, [])
+
+
 if __name__ == "__main__":
     unittest.main()

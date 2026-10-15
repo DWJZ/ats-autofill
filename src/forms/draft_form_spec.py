@@ -675,6 +675,61 @@ def relocate_answer(field: dict, candidate: dict | None = None):
     return None
 
 
+def place_parts(app: dict) -> dict:
+    """The profile's address as the parts a place picker is queried with: {city, state, country}.
+
+    The PARTS and not the joined string, because a country may carry a comma of its own and splitting the joined
+    form back apart is a lossy round trip. This is the object `locationPlan` in `src/forms/location_place.mjs`
+    takes, and it is read from `application_profile.json -> candidate.address` - the same field the answer table's
+    `city_full` is built from, so the two cannot disagree about which place the candidate lives in.
+    """
+    address = ((app or {}).get("candidate") or {}).get("address") or {}
+    return {k: str(address.get(k) or "").strip() for k in ("city", "state", "country")}
+
+
+def location_typeahead(field: dict, answer: str, app: dict) -> dict | None:
+    """The spec entry for a LOCATION control whose option list was never observable, or None for every other field.
+
+    WHAT FOOLED THE TOOL (greenhouse board, posting 8279799, 2026-10-14 - read off the live page in a headless
+    Chrome on port 9333). `Location (City)*` is `input#candidate-location`, a react-select combobox
+    (`class="select__input"`, `role="combobox"`, `aria-autocomplete="list"`, `aria-labelledby="candidate-location-label"`)
+    whose listbox does not exist in the DOM at all until a query is typed into it. The scanner's own open pass read
+    `options: []` for it - every OTHER react-select on that page reported its list - so the inventory knew there was
+    nothing to match an option against, `resolve_option` returned the answer unchanged because its own comment says
+    "no option list recorded (free text or unopened dropdown)", and the spec was written as
+    `{"ref": "id:candidate-location", "option": "Toronto, Ontario, Canada"}`. The filler then opened the control,
+    looked for an option with that exact text, found none, and reported
+    `FAIL select id:candidate-location option not found: Toronto, Ontario, Canada` while the field held nothing.
+
+    THE SHAPE IS NOT AN OPTION LIST, SO THE ENTRY MUST NOT BE ONE. What the drafter can honestly say about this
+    control is the PLACE to commit (`candidate.address` - the one place this project is allowed to state) and,
+    which the filler derives from it, the QUERY to type and the acceptance test a committed row must satisfy. Both
+    halves are derived together by `location_place.mjs`, which is the module Ashby's location field already uses
+    for the same reason: a query list and an acceptance test written separately drift apart, and the drift is a
+    wrong city committed silently.
+
+    NARROW ON PURPOSE. It fires only when the question's own answer IS the profile's joined address (so
+    `desired_location`, a preference, is not silently treated as the home address), the control reported NO options
+    (so a fixed list - Greenhouse's `Country*` control reported 244 of them - keeps the ordinary path), and the
+    inventory classified it as a react-select at all. Every other control drafts exactly as it did before.
+    """
+    parts = place_parts(app)
+    place = ", ".join(p for p in (parts["city"], parts["state"], parts["country"]) if p)
+    if not parts["city"] or norm(place) != norm(answer):
+        return None
+    if field.get("options"):
+        return None
+    return {
+        "ref": field.get("ref"),
+        "option": place,
+        "typeahead": parts,
+        "note": ("typeahead: the option list does not exist until a query is typed (the inventory read no options "
+                 "for this control), so the place is stated as the address to commit and the query and the "
+                 "acceptance test are derived from it by src/forms/location_place.mjs. apply_form_spec.mjs refuses "
+                 "a commit whose read-back does not name this state or country."),
+    }
+
+
 def compensation_rule(candidate: dict | None = None) -> dict:
     """The standing compensation rule, read from canonical data rather than hardcoded.
 
@@ -894,6 +949,14 @@ def main() -> int:
 
         if kind == "select":
             options = field.get("options") or []
+            # A PLACE TYPEAHEAD IS DESCRIBED AS A QUERY AND AN ACCEPTANCE TEST, NOT AS AN OPTION LIST - see
+            # `location_typeahead`, which is where the live markup that forced this is recorded. Tried BEFORE
+            # `resolve_option`, because that function's "no option list recorded" fallback hands back the answer
+            # unchanged and the spec then asks a control for an option it can never offer.
+            typeahead = location_typeahead(field, answer, app)
+            if typeahead:
+                spec["selects"].append(typeahead)
+                continue
             option, exact = resolve_option(answer, options, key)
             if option is None and key == "will_relocate":
                 # A RELOCATION FIELD WHOSE OPTIONS ARE PLACES IS ANSWERED WITH A PLACE. Which place is not decided

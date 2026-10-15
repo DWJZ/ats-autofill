@@ -12,6 +12,11 @@
  *   "texts":   [ { "ref": "id:first_name", "value": "Example" } ],
  *   "textareas":[ { "ref": "id:question_1", "value": "..." } ],
  *   "selects": [ { "ref": "id:question_2", "option": "Yes", "search": "Yes" } ],
+ *   // A PLACE PICKER WHOSE LIST DOES NOT EXIST UNTIL A QUERY IS TYPED - a `typeahead` entry instead of an
+ *   // option list. The query and the acceptance test are derived from `typeahead` by location_place.mjs.
+ *   "selects": [ { "ref": "id:candidate-location", "option": "Springfield, Illinois, United States of America",
+ *                  "typeahead": { "city": "Springfield", "state": "Illinois",
+ *                                 "country": "United States of America" } } ],
  *   "checks":  [ { "ref": "id:cb_1", "checked": true } ],
  *   "files":   [ { "ref": "group:Resume/CV", "path": "/abs/path.pdf" } ],
  *   "verify_blank": true                       // print every visible blank field at the end
@@ -29,6 +34,11 @@ import { chromium } from "playwright-core";
 import { readFile } from "node:fs/promises";
 import { assertNoSubmit } from "./spec_guard.mjs";
 import { DEFAULT_WAIT_MS, boundedPage } from "./bounded_waits.mjs";
+// THE PLACE RULE IS SHARED, NOT RESTATED. What to type into a place picker and what a committed row must look
+// like are derived from ONE address by `location_place.mjs` - the module Ashby's Location autocomplete already
+// uses. A second copy here is how `, CA` and "california" ended up in the same call path on a candidate who
+// lived in Toronto.
+import { committedMatches, locationPlan } from "./location_place.mjs";
 
 const args = process.argv.slice(2);
 const specPath = args.find(a => !a.startsWith("--"));
@@ -218,7 +228,164 @@ async function fillText(item) {
     ...(clickNote ? { note: clickNote } : {}) });
 }
 
+/**
+ * What the control at `ref` currently displays, read from ITS OWN container and nothing else.
+ *
+ * A react-select keeps the committed value in a display node, not in `input.value` (greenhouse's
+ * `Location (City)` holds the chosen place in `div.select__single-value` while its input is empty), and a native
+ * `<select>` keeps it in the selected option. Both branches scope to THIS control: the search starts at the
+ * control's own `[class*=control]` container, so a composite that holds two controls cannot answer for its
+ * neighbour. Greenhouse's phone widget is that composite - a `Country*` react-select beside the
+ * `Phone*` input inside one `fieldset.phone-input` - and a read that climbed to the fieldset reported the dial
+ * code `+1` as the phone number in the audit (`step7_audit.log:7`, 2026-10-14).
+ */
+async function committedText(ref) {
+  const selector = ref.startsWith("id:") ? `[id="${ref.slice(3)}"]` : ref;
+  return bounded.evaluate(sel => {
+    const input = document.querySelector(sel);
+    if (!input) return "";
+    // Native <select> (Greenhouse EEO dropdowns: ids 430/431/432/433/434/436) keeps its value in the
+    // selected option, not in a react-select control container.
+    if (input.tagName === "SELECT") {
+      const option = input.selectedOptions && input.selectedOptions[0];
+      return ((option?.textContent || "") + " " + (input.value || "")).replace(/\s+/g, " ").trim();
+    }
+    const control = input.closest('div[class*="control"]');
+    return ((control?.innerText || "") + " " + (input.value || "")).replace(/\s+/g, " ").trim();
+  }, selector).catch(() => "");
+}
+
+/**
+ * The listbox THIS control is offering, as a locator, or null when it is offering none.
+ *
+ * SCOPED, ALWAYS. `getByRole("option")` over the whole page returns other widgets' rows: Greenhouse's phone
+ * widget keeps intl-tel-input's 244 dial-code rows mounted inside a hidden dropdown, so an unscoped search
+ * reports that the location control "returns countries" (the misdiagnosis DoorDash's form cost two rounds on).
+ * The control's own listbox is named by its `aria-controls`; a combobox that does not wire one gets the listbox
+ * inside its own `select__control`/`select-shell`, and nothing outside it.
+ */
+async function offeredScope(ref) {
+  const el = locator(ref);
+  const listboxId = await el.getAttribute("aria-controls").catch(() => null);
+  if (listboxId) {
+    const box = bounded.locator(`[id="${listboxId}"]`);
+    if (await box.count()) return box.first();
+  }
+  const shell = el.locator('xpath=ancestor::*[contains(@class,"select__control") or contains(@class,"select-shell")][1]');
+  if (await shell.count()) {
+    const box = shell.first().locator('[role="listbox"]');
+    if (await box.count()) return box.first();
+  }
+  return null;
+}
+
+/**
+ * The rows that control is offering: `{index, text}` in document order, each read in ONE page call.
+ *
+ * A hidden row is not offered. The dial-code list above is exactly that - present in the DOM, listed as
+ * `role="option"`, and never on screen - so visibility is read here rather than left to a click timeout.
+ */
+async function offeredRows(ref) {
+  const scope = await offeredScope(ref);
+  if (!scope) return { scope: null, rows: [] };
+  const rows = await scope.locator('[role="option"]').evaluateAll(nodes => nodes.map((node, index) => ({
+    index,
+    text: (node.textContent || "").replace(/\s+/g, " ").trim(),
+    visible: Boolean(node.offsetWidth || node.offsetHeight || node.getClientRects().length),
+  }))).catch(() => []);
+  return { scope, rows: rows.filter(row => row.visible && row.text) };
+}
+
+/**
+ * Drive a PLACE TYPEAHEAD, where the spec says `typeahead` instead of an option list.
+ *
+ * WHY THIS EXISTS (greenhouse board, posting 8279799, 2026-10-14). `Location (City)*` is a react-select
+ * combobox whose listbox is not in the DOM until a query is typed into it, so the drafter used to describe it as
+ * an option list and the filler asked it for the option `Toronto, Ontario, Canada`:
+ *
+ *     step7_fill.log:10  FAIL select id:candidate-location  option not found: Toronto, Ontario, Canada
+ *
+ * The control wanted a query typed into it, a wait for the rows it then offers, and a commit that is read back.
+ * That is the same shape Ashby's Location autocomplete has, so the queries and the acceptance test come from the
+ * same shared rule (`location_place.mjs`) rather than from anything written here.
+ *
+ * THE READ-BACK IS THE POINT OF THE CHANGE. A row is offered only for the query that was typed, and a place list
+ * offers NAMESAKES: typing "Toronto" on this page offered `Toronto, Ontario, Canada` first and then Toronto,
+ * Ohio; Toronto, Kansas; Toronto, England, United Kingdom; ... A picker that clicks and reports OK commits
+ * whichever row it happened to hit, and nothing downstream can tell a right city from a wrong one on a field that
+ * decides a pay band or an office. So a row is clicked only when its own text satisfies the address's state or
+ * country, and after the commit the control's RENDERED value is read back and checked again. A commit that does
+ * not name the profile's place is reported as a failure naming what the list offered, and the field is left for a
+ * person rather than filled with a plausible-looking wrong city.
+ */
+async function chooseTypeahead(item) {
+  const plan = locationPlan(item.typeahead);
+  if (!plan.queries.length) {
+    return log.push({ ref: item.ref, kind: "select", ok: false,
+      err: "typeahead entry carries no place to type (no city in it) - nothing was typed into the control" });
+  }
+  const el = locator(item.ref);
+  if (await el.count() === 0) return log.push({ ref: item.ref, kind: "select", ok: false, err: "not found" });
+  await el.scrollIntoViewIfNeeded().catch(() => {});
+  const expected = plan.expectations.join(" | ") || "(nothing)";
+  const attempted = [];
+  // The first rows the list offered, quoted once. They are the same rows for every query on a place list (the
+  // query narrows a remote list rather than filtering a local one), so repeating them per query only makes the
+  // failure line unreadable - and this line is the whole report of a refusal.
+  let offered = "";
+  for (const query of plan.queries) {
+    await el.click({ timeoutMs: 8000 }).catch(() => {});
+    await sleep(200);
+    await page.keyboard.press("Meta+A").catch(() => {});
+    await page.keyboard.press("Backspace").catch(() => {});
+    // Real keystrokes, never a DOM value-set: a react-select opens its menu from typing, and a remote list is
+    // asked for its rows per keystroke.
+    await el.pressSequentially(query, { delayMs: 40, timeoutMs: 8000 }).catch(() => {});
+    await sleep(900);
+    const { scope, rows } = await offeredRows(item.ref);
+    if (!rows.length) { attempted.push(`${JSON.stringify(query)}: no rows`); continue; }
+    if (!offered) offered = rows.slice(0, 3).map(r => r.text).join(" | ");
+    // The aim first (the list may print exactly what the address says), then any row that names the same STATE
+    // or COUNTRY. Never "the first row": that is how a namesake gets committed.
+    const pick = rows.find(r => r.text === item.option) || rows.find(r => committedMatches(r.text, plan.expectations));
+    if (!pick) {
+      attempted.push(`${JSON.stringify(query)}: ${rows.length} row(s), none naming ${expected}`);
+      continue;
+    }
+    const row = scope.locator('[role="option"]').nth(pick.index);
+    await row.click({ timeoutMs: 8000 }).catch(async () => {
+      const box = await row.boundingBox().catch(() => null);
+      if (box) {
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2).catch(() => {});
+        await page.mouse.down().catch(() => {});
+        await page.mouse.up().catch(() => {});
+      }
+    });
+    await sleep(500);
+    const committed = await committedText(item.ref);
+    if (committedMatches(committed, plan.expectations)) {
+      return log.push({ ref: item.ref, kind: "select", ok: true, value: committed, verified: true,
+        note: `typeahead: clicked ${JSON.stringify(pick.text)} after typing ${JSON.stringify(query)}` });
+    }
+    attempted.push(`${JSON.stringify(query)}: clicked ${JSON.stringify(pick.text)}, read back ${JSON.stringify(committed)}`);
+  }
+  await page.keyboard.press("Escape").catch(() => {});
+  // NOTHING IS COMMITTED, SO NOTHING MAY BE LEFT LOOKING COMMITTED. The queries were typed into the control and a
+  // react-select keeps the typed text in its input until a row is clicked, so a failed typeahead used to leave
+  // "Toronto" sitting in the field as if it were an answer - the same shape as Brex's `HeHeHeHeHe`, where the
+  // filter text survived as the value. The typed text is cleared with real keystrokes before the failure is
+  // reported, and what the control holds afterwards is what the FAIL line names.
+  await page.keyboard.press("Meta+A").catch(() => {});
+  await page.keyboard.press("Backspace").catch(() => {});
+  return log.push({ ref: item.ref, kind: "select", ok: false,
+    err: `typeahead did not commit a place naming ${expected}. Tried ${attempted.join("; ")}` +
+         (offered ? `. The list offered: ${offered}` : "") });
+}
+
 async function choose(item) {
+  // A PLACE TYPEAHEAD IS NOT AN OPTION LIST, so it is not driven like one. The spec entry says `typeahead` when
+  // the control's list does not exist until a query is typed (see `chooseTypeahead`).
+  if (item.typeahead) return chooseTypeahead(item);
   await page.keyboard.press("Escape").catch(() => {});
   const el = locator(item.ref);
   if (await el.count() === 0) return log.push({ ref: item.ref, kind: "select", ok: false, err: "not found" });
@@ -256,18 +423,7 @@ async function choose(item) {
   // A react-select keeps the chosen value in the control container's text, not in input.value, so a
   // field that already holds the wanted option must be detected before re-opening it (re-opening and
   // re-picking can drop the selection).
-  const selectedText = () => bounded.evaluate(sel => {
-    const input = document.querySelector(sel);
-    if (!input) return "";
-    // Native <select> (Greenhouse EEO dropdowns: ids 430/431/432/433/434/436) keeps its value in the
-    // selected option, not in a react-select control container.
-    if (input.tagName === "SELECT") {
-      const option = input.selectedOptions && input.selectedOptions[0];
-      return ((option?.textContent || "") + " " + (input.value || "")).replace(/\s+/g, " ").trim();
-    }
-    const control = input.closest('div[class*="control"]');
-    return ((control?.innerText || "") + " " + (input.value || "")).replace(/\s+/g, " ").trim();
-  }, item.ref.startsWith("id:") ? `[id="${item.ref.slice(3)}"]` : item.ref).catch(() => "");
+  const selectedText = () => committedText(item.ref);
   // A react-select country-code control renders "United States +1" as just "+1", so an exact prefix
   // match is too strict; accept the dial-code token as evidence the option was committed.
   const committed = (text, option) => {
