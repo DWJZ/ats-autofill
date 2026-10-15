@@ -44,9 +44,16 @@ const ROUNDTRIP_TEST_TIMEOUT_MS = 120_000; // ~8x the idle cost of the slowest c
 // have room left over for the test to report it.
 const SPAWN_BUDGET_MS = 40_000;
 const PAGE_WAIT_MS = 15_000;               // one page round trip; Playwright's own default where it has one
-const LOOP_TEST_TIMEOUT_MS = 210_000;      // the loop is three steps a round: slower, so it gets its own
-const LOOP_SPAWN_BUDGET_MS = 180_000;      // ...still well inside the budget above
-const LOOP_STEP_BUDGET_MS = 60_000;        // the loop's own per-step limit, passed down as --step-timeout
+// SIZED FROM A MEASUREMENT, NOT FROM AN ORDERING. These were briefly 210/180/60 on the reasoning that each
+// budget must be shorter than the one waiting on it. That reasoning is about the ORDER and says nothing about
+// the SIZE, and the size was wrong: the loop runs about 125 s on a quiet developer machine, so an 180 s budget
+// left 30% of headroom - and on a CI runner, slower per core, it exceeded the budget and failed with
+// `TIMED OUT after 180000ms waiting on: the refill loop`. A budget tight enough to fail a slower machine is
+// not a guard against a hang; it is a guard against slow hardware. The order still holds (120 < 360 < 420), so
+// a genuine hang is still named rather than waited on.
+const LOOP_TEST_TIMEOUT_MS = 420_000;      // the loop is three steps a round: slower, so it gets its own
+const LOOP_SPAWN_BUDGET_MS = 360_000;      // ...still well inside the budget above
+const LOOP_STEP_BUDGET_MS = 120_000;       // the loop's own per-step limit, passed down as --step-timeout
 
 const test = (name, fnOrOpts, maybeFn) =>
   typeof fnOrOpts === "function"
