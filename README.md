@@ -85,7 +85,15 @@ npm install
 # `npm install` failing with EPERM on the cache? That is root-owned files from an earlier sudo
 # run, not this project. Re-run it with a cache of your own:
 #   npm install --cache /tmp/npm-cache
+npx playwright-core install chromium
 ```
+
+**The last line is not optional if you intend to run the tests.** The fixture browser drives a Chromium out
+of Playwright's own cache rather than the Chrome on your machine — a deliberate choice, because a test that
+depends on whatever browser a person happens to have installed is a test that passes on one machine and not
+another. Without it, 78 of the 199 node tests report `SKIP no usable headless chromium` and
+`npm run test:contract` **fails**, since the contract suite requires zero skips. The form tools themselves
+are unaffected: they attach to Chrome over CDP, and never need Playwright's copy.
 
 ### Starting Chrome with a debugging port
 

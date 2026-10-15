@@ -72,10 +72,26 @@ jobs:
           path: .cache
           key: libreoffice-${{ runner.os }}-${{ hashFiles('src/tools/install_libreoffice.sh') }}
 
+      - name: Cache the browser the fixture tests drive
+        # Keyed on the lockfile because the browser revision is pinned by the Playwright version: bump the
+        # dependency and the cache is invalidated on its own.
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Install Node dependencies
         # `npm ci` rather than `npm install`: it fails when the lockfile and package.json disagree, which is
         # the property that makes a CI run reproducible.
         run: npm ci
+
+      - name: Install the browser the fixture tests drive
+        # NOT the machine's Chrome. The fixture browser resolves a Chromium out of Playwright's own cache, so
+        # `npm ci` alone leaves 78 of 199 node tests reporting `SKIP no usable headless chromium in
+        # ~/Library/Caches/ms-playwright` - and the contract suite requires zero skips, which makes those 78 a
+        # FAILURE. That is the guard working: an environment without a browser must not look like a passing
+        # run. This step is what removes them, and it is what a new checkout needs too - the README says so.
+        run: npx playwright-core install chromium
 
       - name: Run the contract suite
         run: npm run test:contract
