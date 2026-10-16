@@ -323,7 +323,23 @@ def applicant_status(profile: dict) -> str:
     return str(answers.get("work_authorization") or "").strip()
 
 
-def screen_eligibility(text_lc: str, applicant: str | None = None) -> tuple[str, list[str]]:
+#: THE DEFAULT FOR `screen_eligibility`'s applicant argument, and it is a sentinel rather than `None` on
+#: purpose. `None` used to mean "read the saved profile", so it meant two things at once: a caller passing
+#: `None` to say "this applicant has stated no status" got the INSTALLED profile read instead, and the verdict
+#: came back decided by whatever `standard_answers.work_authorization` that file happened to hold. The tests
+#: that exercise the unstated case pass `None` for exactly that reason, and they failed - correctly reporting
+#: `NOT_ELIGIBLE_OR_HIGH_RISK` for a profile that states a status, against an expectation of
+#: `NO_EXPLICIT_RESTRICTION_FOUND`. Both `applicant_status` implementations already return `""` for "not
+#: stated", so a second spelling of it was never needed.
+#:
+#: The three cases are distinct now, and each says what it means:
+#:   * omit the argument     -> read the saved profile (what a caller with no profile in hand wants)
+#:   * pass `None` or `""`   -> this applicant has stated NO status; filter nothing, report the requirement
+#:   * pass a status string  -> that status decides; an unrecognised string filters nothing, as before
+LOAD_FROM_PROFILE = object()
+
+
+def screen_eligibility(text_lc: str, applicant: str | None = LOAD_FROM_PROFILE) -> tuple[str, list[str]]:
     """Is this posting's work-authorisation wording a bar for THIS applicant?
 
     A REQUIREMENT IS A FACT ABOUT THE POSTING; WHETHER IT DISQUALIFIES IS A FACT ABOUT THE APPLICANT.
@@ -335,8 +351,11 @@ def screen_eligibility(text_lc: str, applicant: str | None = None) -> tuple[str,
     The requirement vocabulary comes with the same import, which is also why "Applicants must be US
     citizens." is recognised at all: it has no full stops after the U and the S, and the local pattern
     that used to run here expected them, so the sentence fell through to "no restriction found".
+
+    `applicant=None` MEANS UNSTATED, NOT "LOOK ONE UP" - see `LOAD_FROM_PROFILE` for the failure that
+    distinction was bought with.
     """
-    if applicant is None:
+    if applicant is LOAD_FROM_PROFILE:
         try:
             applicant = applicant_status(load_profile())
         except (OSError, ValueError):
