@@ -21,14 +21,14 @@
  *                                                            # a killed helper left behind (never the
  *                                                            # user's own, which is hours old)
  */
-import { chromium } from "playwright-core";
+import { connect as connectCdp } from "./cdp_connect.mjs";
 
 const [cmd, arg] = process.argv.slice(2);
 const foreground = process.argv.includes("--foreground");
 const cdpIndex = process.argv.indexOf("--cdp");
 const cdp = cdpIndex >= 0 ? process.argv[cdpIndex + 1] : "http://127.0.0.1:9223";
 
-const browser = await chromium.connectOverCDP(cdp);
+const browser = await connectCdp(cdp);
 const context = browser.contexts()[0];
 
 if (cmd === "list") {

@@ -19,7 +19,7 @@
  *
  * Read-only: never fills, never submits.
  */
-import { chromium } from "playwright-core";
+import { connect as connectCdp } from "./cdp_connect.mjs";
 import { DEFAULT_WAIT_MS, boundedPage, withDeadline } from "./bounded_waits.mjs";
 import { writeFile } from "node:fs/promises";
 import { classifyWidget, summarizeWidgets } from "./widget_fingerprint.mjs";
@@ -41,7 +41,9 @@ const htmlIndex = args.indexOf("--html");
 const htmlMatch = htmlIndex >= 0 ? args[htmlIndex + 1] : null;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-const browser = await chromium.connectOverCDP(cdp);
+// The shared connect: this tool used to leave a `playwright-artifacts-<random>` directory in the system
+// temporary directory on every run. See cdp_connect.mjs for what that costs and why one shared entry point.
+const browser = await connectCdp(cdp);
 const tabs = browser.contexts()[0].pages();
 function pickTarget() {
   if (!urlSubstring) return tabs.filter(p => /greenhouse\.io|ashbyhq\.com|lever\.co/.test(p.url())).at(-1) || tabs.at(-1);

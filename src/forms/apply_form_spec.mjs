@@ -30,8 +30,9 @@
  * Safety: never clicks a submit control. If the page shows a submit button it is
  * reported, not pressed.
  */
-import { chromium } from "playwright-core";
+import { connect as connectCdp } from "./cdp_connect.mjs";
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { assertNoSubmit } from "./spec_guard.mjs";
 import { DEFAULT_WAIT_MS, boundedPage } from "./bounded_waits.mjs";
 // THE PLACE RULE IS SHARED, NOT RESTATED. What to type into a place picker and what a committed row must look
@@ -55,7 +56,13 @@ const spec = JSON.parse(await readFile(specPath, "utf8"));
 // it and finding out at review. Verified against all 1,502 specs in data/form_specs/ with zero false positives.
 assertNoSubmit(spec);
 
-const browser = await chromium.connectOverCDP(cdp);
+// A FILL MUST NOT LITTER THE MACHINE IT RUNS ON, and the first attempt at that was the tempting wrong fix:
+// passing `artifactsDir` only chooses WHERE Playwright's `playwright-artifacts-<random>` directory goes, and
+// nothing removes it - not `await browser.close()` (measured: the count still rose 52 -> 53), and not an
+// `artifactsDir` in the checkout, which leaves the directory sitting in `tmp/` instead of the system temp dir.
+// The removal is what was missing. `cdp_connect.mjs` owns it now, for this tool and every other one that
+// attaches, so there is a single place where attaching and cleaning up are the same act.
+const browser = await connectCdp(cdp);
 const tabs = browser.contexts()[0].pages();
 // Prefer an actual application form over a confirmation page: several tenants share
 // numeric job tokens (…1002 vs …2002), so also require the form path when possible.
@@ -242,16 +249,38 @@ async function fillText(item) {
 async function committedText(ref) {
   const selector = ref.startsWith("id:") ? `[id="${ref.slice(3)}"]` : ref;
   return bounded.evaluate(sel => {
-    const input = document.querySelector(sel);
-    if (!input) return "";
+    const node = document.querySelector(sel);
+    if (!node) return "";
     // Native <select> (Greenhouse EEO dropdowns: ids 430/431/432/433/434/436) keeps its value in the
     // selected option, not in a react-select control container.
-    if (input.tagName === "SELECT") {
-      const option = input.selectedOptions && input.selectedOptions[0];
-      return ((option?.textContent || "") + " " + (input.value || "")).replace(/\s+/g, " ").trim();
+    if (node.tagName === "SELECT") {
+      const option = node.selectedOptions && node.selectedOptions[0];
+      return ((option?.textContent || "") + " " + (node.value || "")).replace(/\s+/g, " ").trim();
     }
-    const control = input.closest('div[class*="control"]');
-    return ((control?.innerText || "") + " " + (input.value || "")).replace(/\s+/g, " ").trim();
+    // THE DISPLAY NODE IS THE AUTHORITY; THE CONTAINER'S TEXT IS NOT. This used to read
+    // `closest('div[class*="control"]').innerText`, and on a committed react-select that returns the whole
+    // container's text - the PLACEHOLDER first, then every option of the menu that happens to be rendered:
+    //
+    //     "Select... United States +1 Canada +1 Afghanistan +93"
+    //
+    // Two failures came out of that one expression. The value was never at the start, so `committed()` - which
+    // anchors on `^option` - reported "not committed" for a control that HAD committed, and the filler then
+    // re-opened a control it had already set. Round 1 of a refill loop happened to pass (the menu was not in the
+    // DOM when it verified), and by round 3 re-opening an already-committed list timed out on an invisible
+    // `<option>` and aborted the whole fill with exit 1.
+    //
+    // `control_value.mjs` - what the AUDIT reads a field with - has always looked for the `singleValue` /
+    // `multiValue` node, and it reported this control correctly the whole time. THE TWO READERS DISAGREEING IS
+    // THE DEFECT: the audit said "United States +1" while the filler said "not committed". Reading the same node
+    // in both places is what makes filling and verifying agree about what the page holds.
+    const container = node.closest('div[class*="control"]') || node;
+    const values = container.querySelectorAll(
+      "[class*=singleValue], [class*=multiValue], [class*=single-value], [class*=multi-value]");
+    const shown = [...values].map(el => el.textContent || "").join(" ").replace(/\s+/g, " ").trim();
+    if (shown) return shown;
+    // NO DISPLAY NODE: the control is empty, or its own input carries the value (a text input inside a
+    // react-select shell). The input's `value` is the fact there - never the container's text.
+    return String(node.value || "").replace(/\s+/g, " ").trim();
   }, selector).catch(() => "");
 }
 
@@ -466,6 +495,21 @@ async function choose(item) {
   // "Man", so the field reported "option not found" and stayed BLANK until it was set by hand. Only the first entry was
   // ever tried. The wanted list is therefore every candidate, in order.
   const wants = [item.option, ...(Array.isArray(item.options) ? item.options : [])].filter(Boolean);
+  // AN OPTION THAT CANNOT BE CLICKED IS NOT AN OPTION. `getByRole("option")` matches BOTH the react-select
+  // rows (`<div role="option">`) AND every native `<option>` in a `<select>` on the page, and a native option
+  // is invisible by definition - its box belongs to the `<select>`. Selecting on `count() > 0` alone therefore
+  // picked an invisible `<option>United States</option>` out of an unrelated native country select and then
+  // timed out clicking it (`locator.click: Timeout 15000ms exceeded` ... `element is not visible`), which the
+  // filler reports as an uncaught TimeoutError: the whole RUN aborts, and the loop's round exits 1 having
+  // filled nothing. On the live board this was found on, the same expression resolved against the hidden
+  // options of a phone country picker while the react-select it was aiming at was fine.
+  //
+  // A NATIVE `<select>` IS NOT AFFECTED: it never reaches this loop, because `choose()` handles it above with
+  // `selectOption()`, which drives hidden options correctly.
+  const visible = async (locator) => {
+    if (await locator.count() === 0) return false;
+    return await locator.first().isVisible().catch(() => false);
+  };
   for (let i = 0; i < 12 && !option; i++) {
     await sleep(400);
     // For each candidate: exact -> prefix -> substring. Some tenants expose the full description as the
@@ -479,7 +523,7 @@ async function choose(item) {
       ];
       for (const pattern of patterns) {
         const opt = bounded.getByRole("option", { name: pattern });
-        if (await opt.count() > 0) { option = opt; break; }
+        if (await visible(opt)) { option = opt; break; }
       }
       if (option) break;
     }
@@ -489,7 +533,7 @@ async function choose(item) {
     // Some react-selects ignore a DOM click on the option (the row is virtualized/overlaid):
     // fall back to a real mouse click at the option's coordinates before giving up.
     const byText = bounded.getByRole("option", { name: new RegExp(esc(item.option)) }).first();
-    if (await byText.count() > 0) {
+    if (await visible(byText)) {
       const box = await byText.boundingBox().catch(() => null);
       if (box) {
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2).catch(() => {});

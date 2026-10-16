@@ -14,7 +14,7 @@
  * Read-only: it never fills or submits anything. A blank checkbox is reported as `[unchecked]`,
  * which is only meaningful together with the question it belongs to.
  */
-import { chromium } from "playwright-core";
+import { connect as connectCdp } from "./cdp_connect.mjs";
 import { isEmptyDisplayed } from "./field_state.mjs";
 import { CONTROL_VALUE_SOURCE } from "./control_value.mjs";
 
@@ -23,7 +23,8 @@ const urlSubstring = args.find(a => !a.startsWith("--")) || "";
 const cdpIndex = args.indexOf("--cdp");
 const cdp = cdpIndex >= 0 ? args[cdpIndex + 1] : "http://127.0.0.1:9223";
 
-const browser = await chromium.connectOverCDP(cdp);
+// The shared connect: attaching and cleaning up the artifacts directory are one act now (cdp_connect.mjs).
+const browser = await connectCdp(cdp);
 const tabs = browser.contexts()[0].pages();
 const page = tabs.filter(p => urlSubstring ? p.url().includes(urlSubstring) : /greenhouse\.io/.test(p.url())).at(-1)
   || tabs.at(-1);

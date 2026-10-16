@@ -65,7 +65,7 @@
  *   2  usage error, no tab matches <url-part>, or the --expect-label guard failed (the control under that address is
  *      not the question the caller meant — nothing was pressed, and nothing before it needs re-running by hand)
  */
-import { chromium } from "playwright-core";
+import { connect as connectCdp } from "./cdp_connect.mjs";
 import { readFile } from "node:fs/promises";
 import { DEFAULT_WAIT_MS, boundedPage } from "./bounded_waits.mjs";
 
@@ -157,7 +157,7 @@ if (!planPath && !opt("option") && !opt("option-regex")) die(`no --option (or --
 //    the project's rule is that a driver must not steal the user's focus, and a control on a background tab is driven
 //    through its own CDP session. No page.bringToFront(), no page.focus(), no context.newPage() — ever.
 // ---------------------------------------------------------------------------------------------------------------
-const browser = await chromium.connectOverCDP(cdp);
+const browser = await connectCdp(cdp);
 const pages = browser.contexts()[0].pages();
 const page = pages.find((p) => (p.url() || "").includes(urlPart));
 // `page` is the tab this run found; `bounded` is the same page with the two calls that have no working
