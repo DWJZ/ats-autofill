@@ -5,6 +5,7 @@ The resolver once mapped "Male" onto the tenant option "Transgender woman", beca
 the substring "man" inside "wo-man". These tests pin the word-boundary behaviour.
 """
 import contextlib
+import datetime
 import importlib.util
 import io
 import json
@@ -86,6 +87,47 @@ class MatcherTableTest(unittest.TestCase):
             self.assertEqual(self.key("How did you hear about us?*", kind), "how_heard", kind)
             self.assertEqual(self.key("How did you hear about this role?", kind), "how_heard", kind)
             self.assertEqual(self.key("How did you hear about us?", kind), "how_heard", kind)
+
+    def test_a_form_that_says_learn_instead_of_hear_still_reaches_the_answer(self):
+        """A FORM THAT SAYS "LEARN", and the verb this table had no pattern for.
+
+        A greenhouse board, 2026-10-15, driven in a headless Chrome on the CDP port. Its required select
+        reads - with the employer's own name, which is why the label below is anonymised:
+
+            How did you first learn about <Company> as an employer? *
+
+        `pick_answer` matches the LABEL, and every pattern for this question matched "hear" - so the field
+        came back `no profile mapping` in needs_review while `standing_answers.how_did_you_hear` held an
+        answer for exactly that question. THE TEMPTING FIX WAS THE WRONG ONE: a rule in answer_rules.json
+        answers it, but those rules are tried FIRST, so it would have taken this question away from the
+        built-in matcher for every other tenant's wording - which is what
+        `test_how_did_you_hear_works_on_a_select_too` above exists to catch. The gap was in the matcher.
+
+        WHY THE TENANT IS NOT NAMED HERE. The wording is what the pattern must cover, and the pattern does
+        not care which employer asked it. The tenant, the requisition id and the applicant this was found on
+        are facts about a real person's job search, and this is a file in a repository - see
+        `canonical_citizenship()`, which reads one person's nationality from the profile rather than pinning
+        it here for the same reason.
+        """
+        for label in ("How did you first learn about <Company> as an employer? *",
+                      "How did you first learn about us?",
+                      "How did you learn about this role?",
+                      "Where did you learn about our company?",
+                      "Where did you hear about this position?"):
+            for kind in ("text", "select"):
+                with self.subTest(label=label, kind=kind):
+                    self.assertEqual(self.key(label, kind), "how_heard", label)
+
+    def test_a_learn_pattern_does_not_capture_a_different_question(self):
+        # `learn` is a loose word and appears in questions about training and adaptability, which are a
+        # different question with no standing answer. The matcher requires the DISCOVERY wording around
+        # it - "how/where + hear/learn + about + object" - which is what keeps these out.
+        for label in ("What do you want to learn in this role?",
+                      "Are you willing to learn new technologies?",
+                      "Describe a time you had to learn something quickly",
+                      "How do you learn best?"):
+            with self.subTest(label=label):
+                self.assertNotEqual(self.key(label), "how_heard", label)
 
     def test_school_and_field_work_on_a_plain_text_input_too(self):
         for label in ["School", "School*", "University", "College"]:
@@ -488,6 +530,83 @@ class CitizenshipIsNotResidenceTest(unittest.TestCase):
         self.assertEqual(table["degree"], "Master's Degree")
         self.assertEqual(table["bachelor_school"], "Metropolitan Institute")
         self.assertEqual(table["bachelor_degree"], "Bachelor's Degree")
+
+
+class CurrentCompanyMustBeACurrentEmployerTest(unittest.TestCase):
+    """`current_company` answered "Current Company" with an employer the person had already left.
+
+    THE CASE THAT PAID FOR THIS. A greenhouse board, 2026-10-15, driven in a headless Chrome on the CDP port.
+    The profile's owner had left the employer its `work_experience` lists first sixteen months earlier and had
+    been a full-time master's student since. The drafter read `work_experience[0].company` - the first entry, on
+    the assumption that a profile lists the present job first - and produced, in the spec the gate is written
+    against:
+
+        id:question_...   Current Company (optional) = <the employer the applicant had left>
+
+    That is a claim of PRESENT EMPLOYMENT at a company the applicant no longer works for. It is worse than a
+    blank, and it is INVISIBLE in `needs_review`: an auto-answered field is only listed when the drafter could
+    not answer it, so the one field that says something false about the applicant is the one field the review
+    list does not mention. It was found by reading the drafted spec field by field.
+
+    A profile whose list starts with the CURRENT job keeps the old behaviour - that shape is why the
+    assumption was written, and it is the common shape.
+    """
+
+    #: The role the profile lists first, and the one that produced the false statement. The employer is a
+    #: PLACEHOLDER, not the real one: which company this happened at is a fact about a person's employment
+    #: history, and the defect is about a DATE, not about a tenant. `PAST_ROLE` ends before "today" in the
+    #: tests that pass a fixed `today`, which is the whole of what this fixture has to establish.
+    PAST_ROLE = {"company": "Example Company One", "job_title": "Senior Software Engineer",
+                 "from": "01/2025", "to": "06/2025"}
+
+    def table(self, entries):
+        return drafter.build_answer_table({"name": "Example Candidate"}, {"work_experience": list(entries)})
+
+    def test_a_role_that_ended_in_the_past_is_not_the_current_employer(self):
+        table = self.table([self.PAST_ROLE])
+        self.assertEqual(table["current_company"], "",
+                         "a role that ended in the past was drafted as the CURRENT employer")
+        self.assertEqual(table["current_title"], "")
+
+    def test_a_role_ending_this_month_or_later_is_still_current(self):
+        # The boundary, in both directions, so the fix cannot be "always answer empty" - that would lose
+        # the current employer of every applicant who is actually employed, which is most of them.
+        today = datetime.date(2026, 10, 15)
+        for end, expected in (("10/2026", True), ("11/2026", True), ("09/2026", False)):
+            with self.subTest(end=end):
+                entry = {"company": "Employer", "job_title": "Engineer", "to": end}
+                self.assertEqual(drafter.role_is_current(entry, today), expected)
+
+    def test_an_end_date_this_function_cannot_parse_is_not_evidence_the_role_ended(self):
+        # The safe direction. A spelling it does not recognise keeps the old behaviour: worst case one
+        # blank field a person fills in by hand, never an employer they have left.
+        for unparsed in ("2027.03", "sometime next year", "Q1 2027"):
+            with self.subTest(to=unparsed):
+                self.assertTrue(drafter.role_is_current({"to": unparsed}, datetime.date(2026, 10, 15)))
+
+    def test_an_open_ended_or_present_tense_role_stays_current(self):
+        # These are the three ways a profile writes "still here", and none of them may clear the answer.
+        for entry in ({"company": "E", "job_title": "T"},
+                      {"company": "E", "job_title": "T", "to": ""},
+                      {"company": "E", "job_title": "T", "to": "Present"},
+                      {"company": "E", "job_title": "T", "to": "Current"}):
+            with self.subTest(entry=entry.get("to", "<absent>")):
+                table = self.table([entry])
+                self.assertEqual(table["current_company"], "E")
+                self.assertEqual(table["current_title"], "T")
+
+    def test_a_student_with_no_current_employer_gets_a_blank_not_a_guess(self):
+        # What the real form got after the fix: the first entry is a past role and the second is older
+        # still, so no entry answers "Current Company" and the field is reported. A blank a person fills
+        # in is the correct outcome; the failure this test prevents is the invented employer.
+        entries = [
+            self.PAST_ROLE,
+            {"company": "Example Company Two", "job_title": "Senior Software Engineer",
+             "from": "07/2020", "to": "01/2025"},
+        ]
+        table = self.table(entries)
+        self.assertEqual(table["current_company"], "")
+        self.assertEqual(table["current_title"], "")
 
 
 class LocationTypeaheadDraftingTest(unittest.TestCase):

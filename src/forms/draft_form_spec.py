@@ -125,6 +125,49 @@ def degree_option(value) -> str:
     return ""
 
 
+CURRENT_ROLE_WORDS = ("present", "current", "now", "ongoing", "to date")
+
+
+def role_is_current(entry: dict, today: datetime.date | None = None) -> bool:
+    """Is this work-history entry a role the person still holds?
+
+    WHY THIS EXISTS. `current_company` and `current_title` used to be read as `work_experience[0].company`
+    - the FIRST entry in the list, on the assumption that a profile lists the present job first. On a
+    profile whose owner is between jobs, or back at school, that assumption puts a FALSE STATEMENT on a
+    real application: the form asks "Current Company", the drafter answers with the employer the person
+    left, and NOTHING REPORTS IT, because an auto-answered field is never listed in `needs_review`. A
+    person who had left a job and gone back to full-time study was drafted onto a live employer's form as
+    still working there, and only reading the spec field by field caught it.
+
+    THE RULE, and why it errs the way it does. An end date that parses and lies in the PAST makes the role
+    not current, and the answer becomes empty - a reported gap, which is the honest outcome for a question
+    the profile does not answer. Everything else keeps the old behaviour: an explicit present-tense marker
+    ("Present", "Current"), a role ending this month or later, and an end date this function cannot parse
+    all count as current. That direction is deliberate. Missing a real current employer costs one blank
+    field a person fills in by hand; inventing one is a claim about someone's employment that they never
+    made, and it is the failure this function exists to stop.
+
+    `today` is a parameter so the decision is testable without freezing the clock.
+    """
+    raw = str(entry.get("to") or entry.get("end") or "").strip().lower()
+    if not raw:
+        # No end date recorded: an open-ended role, which is how a profile writes "still here".
+        return True
+    if any(word in raw for word in CURRENT_ROLE_WORDS):
+        return True
+    match = re.match(r"^(\d{1,2})[/-](\d{4})$", raw)
+    if not match:
+        # An unrecognised spelling is not evidence that the role ended.
+        return True
+    month, year = int(match.group(1)), int(match.group(2))
+    if not 1 <= month <= 12:
+        return True
+    reference = today or datetime.date.today()
+    # CURRENT THROUGH THE WHOLE OF THE END MONTH: a role ending 10/2026 is still held during 10/2026, and
+    # a form asking "current company" in that month expects the employer's name.
+    return (year, month) >= (reference.year, reference.month)
+
+
 def build_answer_table(candidate: dict, app: dict) -> dict:
     """Canonical answers keyed by the label questions we know how to recognise."""
     std = candidate.get("standard_answers") or {}
@@ -144,6 +187,10 @@ def build_answer_table(candidate: dict, app: dict) -> dict:
                   education[0] if education else {})
     bachelor = next((e for e in education if "B.S." in (e.get("degree") or "")),
                     next((e for e in education if e is not master), {}))
+    # THE FIRST WORK-HISTORY ENTRY, and it is used for two things that are NOT the same question: the
+    # resume's most recent role, and "Current Company". `role_is_current` decides whether it may answer
+    # the second one - see that function for the false statement this split exists to prevent.
+    most_recent = (app.get("work_experience") or [{}])[0]
     # One recorded value, two matcher keys: `race` and `race_east_asian` are separate because the tenants word this
     # question two ways ("Race", "Ethnicity"), not because the candidate has two answers.
     race_value = race_answer(std)
@@ -249,8 +296,10 @@ def build_answer_table(candidate: dict, app: dict) -> dict:
         # THE EMPLOYER IS THE PROFILE'S OR IT IS EMPTY, for the reason given at the top of this table. These two
         # carried the employer and title of whoever wrote this file, so a profile with no work history - or a
         # different one - was still drafted with that employer, and the value read as if the profile had supplied it.
-        "current_company": (app.get("work_experience") or [{}])[0].get("company", ""),
-        "current_title": (app.get("work_experience") or [{}])[0].get("job_title", ""),
+        # AND THE FIRST ENTRY IS NOT THE CURRENT JOB. It used to be read as one, which answers "Current Company"
+        # with an employer the person has left - see `role_is_current`, which is where that failure is recorded.
+        "current_company": (most_recent or {}).get("company", "") if role_is_current(most_recent) else "",
+        "current_title": (most_recent or {}).get("job_title", "") if role_is_current(most_recent) else "",
         # THE WORK-AUTHORISATION FREE TEXT IS THE PROFILE'S OR IT IS EMPTY. This key held a paragraph describing one
         # person's visa situation and their month-by-month eligibility - a legal statement about a real candidate,
         # written automatically into whatever field asked how many months of work authorisation remain. The profile's
@@ -318,11 +367,24 @@ MATCHERS: list[tuple[str, str, str]] = [
                          r"which (office|location) would you|(office|work) location preference", "select"),
     ("linkedin", r"linkedin", "text"),
     ("github", r"github", "text"),
-    ("how_heard", r"how did you hear|how you heard|hear about (this|the) (job|role|position)", "text"),
+    # WHAT IT MUST NOT CATCH: "learn" is loose and appears in questions about training, adaptability and
+    # learning style ("what do you want to learn", "willing to learn new technologies", "how do you learn
+    # best?"), which are a different question whose honest answer is a paragraph, not a source. So the
+    # pattern requires the DISCOVERY structure - how/where + hear/learn + ABOUT + an object - and a bare
+    # "how do you learn" is deliberately not enough. That word "about" is load-bearing.
+    ("how_heard", r"(how|where) (did you |do you )?(first )?(hear|learn) (about|of)"
+                   r"|(hear|learn) (about|of) (this|the) (job|role|position|company)", "text"),
     # The same question is a react-select on many tenants ("How did you hear about us?*") and the
     # matcher above only covered kind=text - so the one question this project has a standing answer
     # for fell through on 23 saved inventories. Third alternative added for the "us" wording.
-    ("how_heard", r"how did you hear|how you heard|hear (about|of) (this|the|us)", "select"),
+    #
+    # WHAT IT MUST NOT CATCH: "learn" is loose and appears in questions about training, adaptability and
+    # learning style ("what do you want to learn", "willing to learn new technologies", "how do you learn
+    # best?"), which are a different question whose honest answer is a paragraph, not a source. So the
+    # pattern requires the DISCOVERY structure - how/where + hear/learn + ABOUT + an object - and a bare
+    # "how do you learn" is deliberately not enough. That word "about" is load-bearing.
+    ("how_heard", r"(how|where) (did you |do you )?(first )?(hear|learn) (about|of)"
+                   r"|(hear|learn) (about|of) (this|the) (job|role|position|company)", "select"),
     ("sponsor_now", r"will you (now )?(require|need)|(require|need) (immigration|visa )?sponsorship (by|to attain).*(now|current)|now require immigration", "select"),
     # WORD BOUNDARIES ARE LOAD-BEARING HERE (fixed 2026-10-08). This pattern used to be `opt|cpt|...`, and unanchored
     # `opt` matched inside the word "Optional" - so on Asana's form the long OPT/work-authorization answer was written
@@ -423,6 +485,15 @@ OPTION_SYNONYMS: dict[str, list[str]] = {
     "no, i do not have a disability and have not had one in the past": [
         "no, i do not have a disability and have not had one in the past", "no"],
     "united states": ["united states", "united states of america"],
+    # A COUNTRY LIST THAT SPELLS ITSELF WITH A DIAL CODE. One greenhouse board's `Country*` react-select
+    # offers "United States +1" and 243 others in the same "<Country> +<dial code>" shape, so the profile's
+    # own "United States of America" matched nothing and the control was reported unanswered on a REQUIRED
+    # field. The alternative was a per-tenant rule in `answer_rules.json`, which is tried BEFORE the matcher
+    # table and would have answered "Which country do you reside in?" with one tenant's option text
+    # everywhere else - the mapping is generic, so it belongs here. The country stays the profile's own fact;
+    # only the tenant's spelling of it is added.
+    "united states of america": ["united states of america", "united states +1", "united states"],
+    "china": ["china", "china +86", "people's republic of china"],
 }
 
 
@@ -771,6 +842,37 @@ def compensation_answer(field: dict):
     return f"${rule['fallback']:,}", False
 
 
+#: The spec keys that hold one entry per control. `files` is deliberately absent: a file entry names a
+#: path and a group ref, and re-attaching a file that is already attached is the `group not found`
+#: report the loop's own refusal section is built to survive.
+SEEDED_KEYS = ("texts", "textareas", "selects", "checks", "radios")
+
+
+def seed_into_spec(spec: dict, seed: dict) -> int:
+    """Add the seed spec's entries for controls this draft did not answer. Returns how many were added.
+
+    A control THIS run answered keeps this run's entry - the live label is the authority on what the
+    control asks now, and a seed is a record of what it asked when it was last looked at. The seed's
+    entries are appended, not merged key by key: an entry is an instruction to the filler ("put this
+    option in this control"), and half of one is not a weaker instruction, it is a malformed one.
+    """
+    present = {
+        str(entry.get("ref") or "")
+        for key in SEEDED_KEYS
+        for entry in (spec.get(key) or [])
+    }
+    added = 0
+    for key in SEEDED_KEYS:
+        for entry in (seed.get(key) or []):
+            ref = str(entry.get("ref") or "")
+            if not ref or ref in present:
+                continue
+            spec.setdefault(key, []).append(entry)
+            present.add(ref)
+            added += 1
+    return added
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Draft an ATS fill spec from a form inventory.")
     parser.add_argument("fields", help="JSON written by inspect_ats_form.mjs")
@@ -779,6 +881,11 @@ def main() -> int:
     parser.add_argument("--resume", help="Resume PDF path to attach")
     parser.add_argument("--cover-letter", help="Cover-letter PDF path to attach")
     parser.add_argument("--job", default="", help="Human label, e.g. 'Chime — Senior Software Engineer'")
+    parser.add_argument("--seed", default="",
+                        help="An earlier spec for this same form. Its entries are used for any control this "
+                             "draft did not answer, so a LOOP (refill_until_stable.mjs) can start from the "
+                             "answers already worked out instead of re-deriving a nearly empty spec from an "
+                             "already-filled page. A control this run answers always wins over the seed.")
     args = parser.parse_args()
 
     inventory = load(pathlib.Path(args.fields))
@@ -1041,6 +1148,27 @@ def main() -> int:
             spec["files"].append({"ref": bare_resume_ref, "path": args.resume})
         if args.cover_letter:
             spec["files"].append({"ref": bare_cover_ref, "path": args.cover_letter})
+
+    # SEEDED FROM AN EARLIER SPEC, and this is what makes the refill loop usable from a standing start.
+    # `refill_until_stable.mjs` re-drafts every round from a fresh scan, and the drafter only ever emits
+    # fields that are BLANK at draft time - so on round 2 of a form the first round already filled, the
+    # spec came back with 1 answer (the attached resume) and the loop reported "stable" while 27 controls
+    # it could not name sat filled on the page. The loop could therefore only discover a cascade if a
+    # human had filled the form first. Seeding feeds it the base spec instead.
+    #
+    # THE ORDER OF PRECEDENCE IS THE WHOLE CORRECTNESS ARGUMENT: a control THIS run answered keeps this
+    # run's answer, because the live label is the authority on what the control now asks. The seed only
+    # fills gaps. That also means a seed can never overwrite a value the current scan decided.
+    if args.seed:
+        seed_path = pathlib.Path(args.seed)
+        try:
+            seed = load(seed_path)
+        except (OSError, json.JSONDecodeError) as exc:
+            print(json.dumps({"error": f"could not read --seed {seed_path}: {exc}"}))
+            return 2
+        added = seed_into_spec(spec, seed)
+        if added:
+            print(f"seeded {added} entr{'y' if added == 1 else 'ies'} from {seed_path}")
 
     out_path = pathlib.Path(args.out) if args.out else pathlib.Path("tmp/apply") / (pathlib.Path(args.fields).stem.replace("_fields", "") + ".spec.draft.json")
     out_path.parent.mkdir(parents=True, exist_ok=True)
