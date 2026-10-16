@@ -492,6 +492,68 @@ test("loop: refill_until_stable notices a control the fill created, then stops o
   assert.ok(revealedRound >= 1, "cr_revealed can only be seen from the second scan onward");
 });
 
+test("loop: --spec seeds every round, so the loop can start on a form it did not fill", { timeout: 300_000 }, async (t) => {
+  // THE GAP THIS CLOSES, measured on a live greenhouse form. The drafter emits only the
+  // controls that are BLANK at draft time, so from round 2 of the loop - and on any form an earlier run already
+  // filled - an unseeded draft comes back nearly empty: on that form it returned ONE answer (the attached resume)
+  // while 27 filled controls sat on the page, and the loop then declared "stable" over a spec that could not name a
+  // single question. In practice that meant a human had to fill the form by hand before the loop could discover
+  // anything, which is not a tool anyone can use on the application they are actually working on.
+  //
+  // BOTH DIRECTIONS ARE ASSERTED. Without `--spec` almost nothing lands; with it, the seeded control reaches the
+  // page. A test that checked only the second would pass on a loop that ignored the flag and happened to derive the
+  // field anyway.
+  if (!ready(t)) return;
+  const dir = mkdtempSync(join(tmpdir(), "jh-seed-"));
+  try {
+    const seedPath = join(dir, "seed.spec.json");
+    // `id:it_search` IS CHOSEN BECAUSE NOTHING CAN DERIVE IT. Its name is `keywords`, and no matcher in
+    // `draft_form_spec.py`'s table recognises it, so the field is blank in every draft and the only thing that can
+    // put a value in it is this seed. The first version of this test used `cr_trigger`, whose label reads "Name" -
+    // the drafter answered it from the profile's own full name, which is the precedence working correctly, and the
+    // assertion then blamed the seeding for a correct answer. A seed entry is only evidence when nothing else
+    // could have produced the value.
+    writeFileSync(seedPath, JSON.stringify({
+      job: "fixture",
+      texts: [{ ref: "id:it_search", value: "Seeded" }],
+      textareas: [], selects: [], checks: [], radios: [],
+    }, null, 2));
+
+    const run = async (extra, lastSpec) => {
+      await resetFixture();
+      const r = await spawnChild("node", [
+        join(HERE, "refill_until_stable.mjs"), "ats_widgets",
+        "--cdp", cdpUrl, "--max-rounds", "1", "--job", "fixture",
+        "--step-timeout", String(LOOP_STEP_BUDGET_MS),
+        ...extra,
+      ], { what: "the refill loop (refill_until_stable.mjs)", timeoutMs: LOOP_SPAWN_BUDGET_MS, cwd: HERE });
+      // THE SPEC THE ROUND WROTE, because the loop does NOT forward the filler's log - it counts its `OK` lines and
+      // prints the totals. Asserting on `OK ... id:it_search` here was asserting on a line this program never prints;
+      // the filler does produce it (verified by running apply_form_spec.mjs on the same spec by hand), and what the
+      // loop's own artefact shows is whether the entry was in the spec it asked the filler to run.
+      let refs = [];
+      try {
+        const spec = JSON.parse(readFileSync(join(HERE, "..", "..", "tmp", "apply", lastSpec), "utf8"));
+        refs = (spec.texts || []).map(e => e.ref);
+      } catch { /* the assertion below reports the absence */ }
+      return { out: `${r.stdout}${r.stderr}`, refs };
+    };
+
+    const seeded = await run(["--spec", seedPath], "refill_r1.spec.json");
+    assert.ok(seeded.refs.includes("id:it_search"),
+      `--spec must put the caller's answer into the round's spec; it holds ${JSON.stringify(seeded.refs)}:\n${seeded.out}`);
+    assert.match(seeded.out, /\+1 from the seed \(/,
+      `the loop must say the caller's spec reached the drafter, in the round it happened:\n${seeded.out}`);
+
+    const unseeded = await run([], "refill_r1.spec.json");
+    assert.ok(!unseeded.refs.includes("id:it_search"),
+      `nothing can derive this control, which is the gap --spec exists to close; the unseeded spec holds `
+      + `${JSON.stringify(unseeded.refs)}:\n${unseeded.out}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  }
+});
+
 test("roundtrip: a covered control reports WHAT IS ON TOP of it", { timeout: 120_000 }, async (t) => {
   if (!ready(t)) return;
   // A CLICK TIMEOUT WITH A HEALTHY BOUNDING BOX MEANS AN OVERLAY, and the check to reach for first - before any

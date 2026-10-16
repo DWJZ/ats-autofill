@@ -26,8 +26,14 @@
  *      and its test - lives.
  *
  * Usage:
- *   node src/forms/refill_until_stable.mjs <url-substring> [--job "Twitch — Software Engineer I"]
+ *   node src/forms/refill_until_stable.mjs <url-substring> [--spec base.spec.json] [--job "Twitch — Software Engineer I"]
  *       [--resume <pdf>] [--cover-letter <pdf>] [--url <form url>] [--max-rounds 4] [--cdp http://127.0.0.1:9223]
+ *
+ * `--spec` IS HOW YOU POINT IT AT AN APPLICATION YOU ALREADY HAVE. The drafter emits only the controls that are
+ * BLANK at draft time, so on a form a previous run filled - or from round 2 of this loop - an unseeded draft comes
+ * back nearly empty and the loop declares "stable" over a spec that can name almost nothing. Passing the spec you
+ * already drafted seeds every round with the answers worked out so far; each round's own result seeds the next, so
+ * a control discovered in round 1 is still there in round 3.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
@@ -46,7 +52,7 @@ const get = (name, dflt = "") => {
 
 // Flags that TAKE a value, so the first bare argument can be told apart from a flag's argument.
 const VALUED = new Set(["--job", "--resume", "--cover-letter", "--url", "--max-rounds", "--cdp",
-                        "--step-timeout"]);
+                        "--step-timeout", "--spec"]);
 const positional = [];
 for (let i = 0; i < argv.length; i++) {
   if (VALUED.has(argv[i])) { i++; continue; }
@@ -55,7 +61,7 @@ for (let i = 0; i < argv.length; i++) {
 }
 const frag = positional[0];
 if (!frag) {
-  console.error("usage: refill_until_stable.mjs <url-substring> [--job ...] [--resume x.pdf] [--cover-letter y.pdf] [--max-rounds 4] [--step-timeout ms]");
+  console.error("usage: refill_until_stable.mjs <url-substring> [--spec base.spec.json] [--job ...] [--resume x.pdf] [--cover-letter y.pdf] [--max-rounds 4] [--step-timeout ms]");
   process.exit(2);
 }
 const job = get("--job", "");
@@ -73,6 +79,20 @@ const maxRounds = Number(get("--max-rounds", "4"));
 const stepTimeout = Number(get("--step-timeout", "600000"));
 const outDir = join(ROOT, "tmp", "apply");
 mkdirSync(outDir, { recursive: true });
+
+// THE SPEC YOU ALREADY DRAFTED, which is what lets this loop start on a form it did not fill itself.
+// The drafter only emits controls that are BLANK at draft time, so from round 2 onwards - and on any form
+// a previous run already filled - an unseeded draft comes back nearly empty: on the live form this was
+// measured on it returned ONE answer (the attached resume) while 27 filled controls sat on the page, and
+// the loop would then have ended with "stable" over a spec that could not name a single question. Without
+// this flag the loop can still discover a cascade, but only on a form IT filled in round 1 - which is not
+// a tool anyone can use on the application they are actually working on.
+const baseSpec = get("--spec", "");
+// EACH ROUND'S SEED IS THE PREVIOUS ROUND'S RESULT, so a control discovered in round 1 is still in the
+// spec for round 2 rather than having to be rediscovered - and a control that disappears and comes back
+// is not lost. Round 1 seeds from the caller's spec; with none given, behaviour is as it was.
+let previousSpec = baseSpec;
+let lastSpec = baseSpec;
 
 const python = join(ROOT, ".venv", "bin", "python3");
 const run = (cmd, args) => {
@@ -146,6 +166,9 @@ for (let round = 1; round <= maxRounds; round++) {
     "--job", job || frag];
   if (resume) draftArgs.push("--resume", resume);
   if (cover) draftArgs.push("--cover-letter", cover);
+  // THE PREVIOUS ROUND'S SPEC AS THE SEED, so every answer already worked out survives into this round and
+  // the spec stays a complete instruction rather than only the fields that happen to be blank right now.
+  if (previousSpec) draftArgs.push("--seed", previousSpec);
   const draft = run(python, draftArgs);
   if (draft.status !== 0) {
     console.error(`round ${round}: the drafter failed\n${why(draft)}`);
@@ -153,6 +176,12 @@ for (let round = 1; round <= maxRounds; round++) {
   }
   const answered = (draft.stdout.match(/"auto_answered":\s*(\d+)/) || [])[1] || "?";
   const review = (draft.stdout.match(/"needs_review":\s*(\d+)/) || [])[1] || "?";
+  // THE DRAFTER'S OWN SENTENCE ABOUT THE SEED, carried through instead of thrown away. `run()` captures the
+  // drafter's stdout and this block reads three fields out of it with regexes; everything else the child printed was
+  // discarded unless the child FAILED, so "seeded 27 entries from …" was written on every round and shown on none.
+  // A caller passing `--spec` had no way to tell whether the flag had been honoured, which is the difference between
+  // a spec that covers the form and one that covers almost nothing.
+  const seeded = (draft.stdout.match(/^seeded (\d+) entr(?:y|ies) from (.+)$/m) || []).slice(1);
 
   // THE FILL IS WHAT MAKES THE NEXT SCAN DIFFERENT. A round that fills nothing reveals nothing, which is exactly why
   // the loop must still run it: the reveal is a consequence of answering, not of scanning.
@@ -189,6 +218,8 @@ for (let round = 1; round <= maxRounds; round++) {
   const failed = ((fill.stdout || "").match(/^\s+FAIL\s+/gm) || []).length;
   console.log(`    spec: ${answered} answered, ${review} needs_review | fill: ${filled} landed, ${failed} failed`
     + ` | ${unmentioned ?? "0"} unmentioned control(s)`);
+  // WHERE THE SEED LANDED, in the round it happened. Silence here used to be the only signal, which is no signal.
+  if (seeded.length) console.log(`    +${seeded[0]} from the seed (${seeded[1]})`);
 
   if (previous && fresh.length === 0) {
     if (gone.length === 0) {
@@ -200,6 +231,10 @@ for (let round = 1; round <= maxRounds; round++) {
     console.log("    (controls disappeared this round; not stable yet)");
   }
   previous = now;
+  // THIS ROUND'S SPEC BECOMES THE NEXT ROUND'S SEED, set after the fill so a round that revealed nothing
+  // still carries its answers forward. `lastSpec` is what the report names at the end.
+  previousSpec = specPath;
+  lastSpec = specPath;
 }
 
 // ---- the remote lists, which the loop cannot reach by design ------------------------------------------------
