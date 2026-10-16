@@ -157,6 +157,7 @@ export PYTHONDONTWRITEBYTECODE=1
 # The tree as the run found it, so the guard at the end can prove nothing was left behind in it rather than
 # promising that the cleanup below covers every path.
 TREE_BEFORE="$(find . -path ./node_modules -prune -o -path ./.venv -prune -o \
+  -path ./data/chrome-cdp-profile -prune -o \
   -path ./output -prune -o -path ./tmp -prune -o -path ./.cache -prune -o -print | sort)"
 # And the temporary directory as the run found it, for the first half of the second guard: the tree check
 # below can only see files that stayed INSIDE the checkout, and every one of this suite's leaks was outside
@@ -277,7 +278,18 @@ printf '  python: %s\n  node:   %s\n' "$python_summary" "$node_summary"
 # second teaches the reader to run it twice, which is worse than the thing it was watching for. What it
 # is for is a FIXTURE - a fabricated configuration or reference - escaping into the checkout, and that
 # lands anywhere else.
+#
+# `data/chrome-cdp-profile/` IS THE THIRD, AND IT IS NOT THE SAME KIND OF EXCEPTION. `chrome_launch.mjs`
+# puts the browser profile inside the data directory deliberately (`docs/CONFIGURATION.md`: "the launched
+# browser's profile is the one thing the toolkit writes here that is not configuration"), so on any
+# checkout where a browser is OPEN - a form being filled while the suite runs, which is the normal state
+# for this tool - Chrome appends to it continuously: `Safe Browsing/UrlBilling.store.4_…`,
+# `Default/Extension State/000004.log`, and a new suffix on every launch. Those paths are not the run
+# escaping anywhere; they are a live browser that the guard happened to snapshot twice.
+# `src/tools/test_bootstrap_end_to_end.py` excludes the same path for the same reason, and the guard
+# keeps its teeth: a fixture written to `data/` under any OTHER name still fails here.
 TREE_AFTER="$(find . -path ./node_modules -prune -o -path ./.venv -prune -o \
+  -path ./data/chrome-cdp-profile -prune -o \
   -path ./output -prune -o -path ./tmp -prune -o -path ./.cache -prune -o -print | sort)"
 if [[ "$TREE_BEFORE" == "$TREE_AFTER" ]]; then
   printf '  ok    the run left no file behind in the checkout\n'

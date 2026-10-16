@@ -224,12 +224,33 @@ class TheAnswersFormatTest(ABootstrapTest):
 class NothingOutsideTheDataDirectoryIsTouchedTest(ABootstrapTest):
     """The bootstrap's whole point: the facts go where `ATS_DATA_DIR` says, and the checkout is untouched."""
 
+    #: THE FILES THAT ARE THE REPOSITORY. `git ls-files` rather than `ROOT.rglob("*")`, and the difference is
+    #: measured rather than stylistic: the walk read EVERY generated artefact too, and on a checkout that has run
+    #: the toolkit that is `.cache/libreoffice` (804 MB) plus the cached installer (288 MB) - 17,456 files read
+    #: twice, per run, in Python. The assertion took long enough to look like a hang: the Python suite went from
+    #: 41 s to over ten minutes, and the test that appeared to be hanging was this one, still hashing a
+    #: LibreOffice install that `prepare` had downloaded for the resume pipeline.
+    #:
+    #: WHAT THE ASSERTION IS ABOUT is that a bootstrap does not add or change a file IN THE REPOSITORY, and a
+    #: gitignored scratch or cache directory is not the repository - `.cache/`, `tmp/` and `output/` are created
+    #: by using the tools, so a test that failed when they exist would fail on every checkout anyone has used.
+    #: Tracked files are the definition that cannot drift from what the project means.
+    #: A checkout with no git (a tarball) falls back to the walk, minus the generated directories.
+    GENERATED = ("node_modules", ".venv", "__pycache__", ".cache", "tmp", "output", ".git")
+
+    def repository_files(self) -> list[pathlib.Path]:
+        try:
+            listed = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True,
+                                    check=True).stdout.splitlines()
+        except (OSError, subprocess.CalledProcessError):
+            return [p for p in sorted(ROOT.rglob("*"))
+                    if p.is_file() and not any(part in self.GENERATED for part in p.parts)]
+        return [ROOT / name for name in sorted(listed) if (ROOT / name).is_file()]
+
     def test_the_checkout_is_byte_for_byte_the_same_after_a_bootstrap(self):
-        before = {p: p.read_bytes() for p in sorted(ROOT.rglob("*")) if p.is_file()
-                  and "node_modules" not in p.parts and ".venv" not in p.parts and "__pycache__" not in p.parts}
+        before = {p: p.read_bytes() for p in self.repository_files()}
         run("--data-dir", str(self.data), answers=json.loads(ANSWERS.read_text(encoding="utf-8")))
-        after = {p: p.read_bytes() for p in sorted(ROOT.rglob("*")) if p.is_file()
-                 and "node_modules" not in p.parts and ".venv" not in p.parts and "__pycache__" not in p.parts}
+        after = {p: p.read_bytes() for p in self.repository_files()}
         self.assertEqual(sorted(map(str, before)), sorted(map(str, after)), "the bootstrap added a file to the repo")
         self.assertEqual(before, after, "the bootstrap changed a file in the repository")
 

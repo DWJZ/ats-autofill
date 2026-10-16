@@ -53,6 +53,18 @@ ANSWERS = ROOT / "tests" / "fixtures" / "bootstrap" / "answers.json"
 INVENTORY = ROOT / "tests" / "fixtures" / "bootstrap" / "form_inventory.json"
 ROLE_PROFILE = "resume_profiles/toronto_general_rn_emergency.json"
 
+#: Paths INSIDE the checkout that a run is allowed to write, because they are generated rather than authored.
+#: `output/` and `tmp/` hold rendered documents and render scratch space, which this module's own docstring
+#: already says. `data/chrome-cdp-profile/` IS THE THIRD AND WAS MISSING: `chrome_launch.mjs` puts the browser
+#: profile inside the data directory on purpose (`docs/CONFIGURATION.md`, "the launched browser's profile is the
+#: one thing the toolkit writes here that is not configuration"), so any checkout where a browser has ever been
+#: launched for a form carries `Default/Cookies`, `Local State` and the rest - and this assertion then failed
+#: with `['data/chrome-cdp-profile/Default/Cookies', …] != []` on a run that wrote nothing wrong at all.
+#: The guard keeps its teeth: anything a bootstrap puts in `data/` OTHER than this directory still fails here,
+#: and the same property is asserted a second time, against this checkout's own tracked files, by
+#: `src/tools/test_configure.py`.
+SCRATCH_PATHS = ("output/", "tmp/", "data/chrome-cdp-profile/")
+
 #: One value the example person's configuration carries, per file that a form could be filled from. None of
 #: these may appear in anything a bootstrapped checkout produces: not in the resume PDF, not in the letter,
 #: not in the drafted spec. This is the assertion the whole exercise is for — the example person's facts on a
@@ -280,7 +292,7 @@ class TheBootstrapPathTest(unittest.TestCase):
         after = repository_files()
         changed = sorted(set(after) - set(before)) + sorted(p for p in set(after) & set(before)
                                                             if after[p] != before[p])
-        outside = [p for p in changed if not p.startswith(("output/", "tmp/"))]
+        outside = [p for p in changed if not p.startswith(SCRATCH_PATHS)]
         self.assertEqual(outside, [], f"a run wrote these paths inside the checkout: {outside}")
         missing = sorted(set(before) - set(after))
         self.assertEqual(missing, [], f"a run removed these paths from the checkout: {missing}")
