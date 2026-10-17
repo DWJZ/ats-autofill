@@ -156,7 +156,7 @@ mkdir -p "$ATS_DATA_DIR"
 export PYTHONDONTWRITEBYTECODE=1
 # The tree as the run found it, so the guard at the end can prove nothing was left behind in it rather than
 # promising that the cleanup below covers every path.
-TREE_BEFORE="$(find . -path ./node_modules -prune -o -path ./.venv -prune -o \
+TREE_BEFORE="$(find . -path ./.git -prune -o -path ./node_modules -prune -o -path ./.venv -prune -o \
   -path ./data/chrome-cdp-profile -prune -o \
   -path ./output -prune -o -path ./tmp -prune -o -path ./.cache -prune -o -print | sort)"
 # And the temporary directory as the run found it, for the first half of the second guard: the tree check
@@ -288,7 +288,20 @@ printf '  python: %s\n  node:   %s\n' "$python_summary" "$node_summary"
 # escaping anywhere; they are a live browser that the guard happened to snapshot twice.
 # `src/tools/test_bootstrap_end_to_end.py` excludes the same path for the same reason, and the guard
 # keeps its teeth: a fixture written to `data/` under any OTHER name still fails here.
-TREE_AFTER="$(find . -path ./node_modules -prune -o -path ./.venv -prune -o \
+#
+# `.git/` IS THE FOURTH, AND IT IS GIT'S OWN WORKING STATE RATHER THAN ANYTHING A RUN WROTE. Git runs
+# housekeeping on its own schedule - `git maintenance`/`gc --auto` rewrite `.git/objects/info/commit-graphs/`
+# after enough commits - so the guard failed on
+#
+#     ./.git/objects/info/commit-graphs/graph-<hash>.graph
+#
+# for a run that had touched nothing: the six commits made just before this suite ran were what triggered
+# git's maintenance, and the guard snapshotted `.git/` either side of it. A guard that reports git doing its
+# job is a guard that gets ignored, which is the failure mode this whole check exists to avoid. Excluding it
+# cannot hide a FIXTURE escaping: every tracked file lives outside `.git/`, and the suite's own scratch goes
+# to `tmp/` and `output/`. `src/tools/test_configure.py` reaches the same conclusion from the other side by
+# hashing `git ls-files`, which is the repository by definition.
+TREE_AFTER="$(find . -path ./.git -prune -o -path ./node_modules -prune -o -path ./.venv -prune -o \
   -path ./data/chrome-cdp-profile -prune -o \
   -path ./output -prune -o -path ./tmp -prune -o -path ./.cache -prune -o -print | sort)"
 if [[ "$TREE_BEFORE" == "$TREE_AFTER" ]]; then
